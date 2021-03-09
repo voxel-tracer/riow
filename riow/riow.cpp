@@ -17,6 +17,7 @@ int main()
     cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
     for (auto j = image_height - 1; j >= 0; --j) {
+        cerr << "\rScanlines remaining: " << j << ' ' << flush;
         for (auto i = 0; i != image_width; ++i) {
             auto r = double(i) / (image_width - 1);
             auto g = double(j) / (image_height - 1);
