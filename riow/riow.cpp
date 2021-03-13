@@ -47,7 +47,9 @@ int main()
     auto R = cos(pi / 4);
     hittable_list world;
 
-    auto material_ground = make_shared<lambertian>(color(0.8, 0.8, 0.0));
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+
     auto material_center = make_shared<lambertian>(color(0.1, 0.2, 0.5));
     auto material_left = make_shared<dielectric>(1.5);
     auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
@@ -63,7 +65,7 @@ int main()
     point3 lookat{ 0, 0, -1 };
     vec3 vup{ 0, 1, 0 };
     auto dist_to_focus = (lookfrom - lookat).length();
-    auto aperture = 2.0;
+    auto aperture = 0.1;
 
     camera cam(lookfrom, lookat, vup, 20, aspect_ratio, aperture, dist_to_focus);
 
