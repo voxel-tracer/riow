@@ -32,6 +32,32 @@ color ray_color(const ray& r, const hittable_list& world, int depth) {
     return (1.0 - t) * color { 1.0, 1.0, 1.0 } + t * color{ 0.5, 0.7, 1.0 };
 }
 
+hittable_list earth() {
+    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
+    auto earth_surface = make_shared<lambertian>(earth_texture);
+    auto globe = make_shared<sphere>(point3(0, 0, 0), 2, earth_surface);
+
+    return hittable_list(globe);
+}
+
+hittable_list three_spheres() {
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+
+    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
+    auto material_center = make_shared<lambertian>(earth_texture);
+    auto material_right = make_shared<dielectric>(1.5);
+    auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
+
+    hittable_list world;
+    world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
+    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
+    return world;
+}
+
 int main()
 {
     // Image
@@ -44,28 +70,34 @@ int main()
 
     // World
 
-    auto R = cos(pi / 4);
     hittable_list world;
 
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
+    point3 lookfrom;
+    point3 lookat;
+    auto vfov = 40.0;
+    auto aperture = 0.0;
 
-    auto material_center = make_shared<lambertian>(color(0.1, 0.2, 0.5));
-    auto material_left = make_shared<dielectric>(1.5);
-    auto material_right = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
+    switch (0) {
+        case 1:
+            world = earth();
+            lookfrom = point3(13, 2, 3);
+            lookat = point3(0, 0, 0);
+            vfov = 20.0;
+            break;
 
-    world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
-    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
-    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
+        case 2:
+        default:
+            world = three_spheres();
+            lookfrom = point3(3, 2, 2);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            break;
+    }
 
     // Camera
-    point3 lookfrom{ 3, 3, 2 };
-    point3 lookat{ 0, 0, -1 };
     vec3 vup{ 0, 1, 0 };
     auto dist_to_focus = (lookfrom - lookat).length();
-    auto aperture = 0.1;
 
     camera cam(lookfrom, lookat, vup, 20, aspect_ratio, aperture, dist_to_focus);
 
