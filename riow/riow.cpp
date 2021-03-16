@@ -6,6 +6,7 @@
 #include "color.h"
 #include "hittable_list.h"
 #include "sphere.h"
+#include "constant_medium.h"
 #include "camera.h"
 #include "material.h"
 
@@ -58,6 +59,29 @@ hittable_list three_spheres() {
     return world;
 }
 
+hittable_list three_spheres_with_medium() {
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+
+    auto material_right = make_shared<dielectric>(1.5);
+    auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
+
+    hittable_list world;
+    world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
+    auto white = make_shared<lambertian>(color(0.73, 0.73, 0.73));
+    shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, white);
+    world.add(make_shared<constant_medium>(sphere1, 10.0, color(1, 1, 1)));
+
+    auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
+    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.75), 0.1, material_light));
+
+    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
+    return world;
+}
+
 hittable_list four_spheres() {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -88,7 +112,7 @@ int main()
     // Image
 
     const auto aspect_ratio = 16.0 / 9.0;
-    const int image_width = 800;
+    const int image_width = 400;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
     const int samples_per_pixel = 1024;
     const int max_depth = 50;
@@ -103,7 +127,7 @@ int main()
     auto aperture = 0.0;
     color background = { 0, 0, 0 };
 
-    switch (0) {
+    switch (3) {
         case 1:
             world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -120,8 +144,18 @@ int main()
             aperture = 0.1;
             background = color(0.70, 0.80, 1.00);
             break;
-        default:
+
         case 3:
+            world = three_spheres_with_medium();
+            lookfrom = point3(3, 2, 2);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.70, 0.80, 1.00);
+            break;
+
+        default:
+        case 4:
             world = four_spheres();
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
