@@ -24,13 +24,16 @@ color ray_color(const ray& r, const color& background, const hittable_list& worl
         return background;
 
     ray scattered;
-    color attenuation;
     color emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
+    double pdf;
+    color albedo;
 
-    if (!rec.mat_ptr->scatter(r, rec, attenuation, scattered))
+    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf))
         return emitted;
 
-    return emitted + attenuation * ray_color(scattered, background, world, depth - 1);
+    return emitted + 
+        albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered)
+               * ray_color(scattered, background, world, depth - 1) / pdf;
 }
 
 hittable_list earth() {
@@ -39,6 +42,23 @@ hittable_list earth() {
     auto globe = make_shared<sphere>(point3(0, 0, 0), 2, earth_surface);
 
     return hittable_list(globe);
+}
+
+hittable_list diffuse_spheres() {
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+
+    auto white = color(.75, .75, .75);
+    auto material_white = make_shared<lambertian>(white);
+
+    hittable_list world;
+    world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_white));
+    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_white));
+
+    auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
+    world.add(make_shared<sphere>(point3(0.0, 1.5, 1.75), 0.1, material_light));
+
+    return world;
 }
 
 hittable_list three_spheres() {
@@ -127,7 +147,7 @@ int main()
     auto aperture = 0.0;
     color background = { 0, 0, 0 };
 
-    switch (3) {
+    switch (5) {
         case 1:
             world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -154,12 +174,21 @@ int main()
             background = color(0.70, 0.80, 1.00);
             break;
 
-        default:
         case 4:
             world = four_spheres();
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 30.0;
+            aperture = 0.1;
+            background = color(0.1, 0.1, 0.1);
+            break;
+
+        default:
+        case 5:
+            world = diffuse_spheres();
+            lookfrom = point3(3, 2, 2);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
             aperture = 0.1;
             background = color(0.1, 0.1, 0.1);
             break;
