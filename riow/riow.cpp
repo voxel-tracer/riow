@@ -9,6 +9,8 @@
 #include "constant_medium.h"
 #include "camera.h"
 #include "material.h"
+#include "box.h"
+#include "aarect.h"
 
 #include <iostream>
 
@@ -127,12 +129,40 @@ hittable_list four_spheres() {
     return world;
 }
 
+hittable_list cornell_box() {
+    hittable_list objects;
+
+    auto red = make_shared<lambertian>(color(.65, .05, .05));
+    auto white = make_shared<lambertian>(color(.73, .73, .73));
+    auto green = make_shared<lambertian>(color(.12, .45, .15));
+    auto light = make_shared<diffuse_light>(color(15, 15, 15));
+
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
+    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
+    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
+    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
+    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
+
+    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
+    box1 = make_shared<rotate_y>(box1, 15);
+    box1 = make_shared<translate>(box1, vec3(265, 0, 295));
+    objects.add(box1);
+
+    shared_ptr<hittable> box2 = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
+    box2 = make_shared<rotate_y>(box2, -18);
+    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
+    objects.add(box2);
+
+    return objects;
+}
+
 int main()
 {
     // Image
 
-    const auto aspect_ratio = 16.0 / 9.0;
-    const int image_width = 400;
+    const auto aspect_ratio = 1.0 / 1.0;
+    const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
     const int samples_per_pixel = 1024;
     const int max_depth = 50;
@@ -147,7 +177,7 @@ int main()
     auto aperture = 0.0;
     color background = { 0, 0, 0 };
 
-    switch (5) {
+    switch (0) {
         case 1:
             world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -183,7 +213,6 @@ int main()
             background = color(0.1, 0.1, 0.1);
             break;
 
-        default:
         case 5:
             world = diffuse_spheres();
             lookfrom = point3(3, 2, 2);
@@ -191,6 +220,13 @@ int main()
             vfov = 20.0;
             aperture = 0.1;
             background = color(0.1, 0.1, 0.1);
+            break;
+
+        default:
+        case 6:
+            world = cornell_box();
+            lookfrom = point3(278, 278, -800);
+            lookat = point3(278, 278, 0);
             break;
     }
 

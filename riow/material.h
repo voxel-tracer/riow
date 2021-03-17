@@ -2,6 +2,7 @@
 
 #include "rtweekend.h"
 #include "texture.h"
+#include "onb.h"
 
 struct hit_record;
 
@@ -26,15 +27,17 @@ public:
     lambertian(shared_ptr<texture> a) : albedo(a) {}
 
     virtual bool scatter(const ray& in, const hit_record& rec, color& alb, ray& scattered, double& pdf) const override {
-        auto scatter_direction = rec.normal + random_unit_vector();
+        onb uvw;
+        uvw.build_from_w(rec.normal);
+        auto direction = uvw.local(random_cosine_direction());
 
         // Catch degenerate scatter direction
-        if (scatter_direction.near_zero())
-            scatter_direction = rec.normal;
+        //if (direction.near_zero())
+        //    direction = rec.normal;
 
-        scattered = ray(rec.p, scatter_direction);
+        scattered = ray(rec.p, direction);
         alb = albedo->value(rec.u, rec.v, rec.p);
-        pdf = dot(rec.normal, scattered.direction()) / pi;
+        pdf = dot(uvw.w(), scattered.direction()) / pi;
         return true;
     }
 
