@@ -11,6 +11,7 @@
 #include "material.h"
 #include "box.h"
 #include "aarect.h"
+#include "pdf.h"
 
 #include <iostream>
 
@@ -26,16 +27,21 @@ color ray_color(const ray& r, const color& background, const hittable_list& worl
         return background;
 
     ray scattered;
-    color emitted = rec.mat_ptr->emitted(rec.u, rec.v, rec.p);
-    double pdf;
+    color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
+    double pdf_val;
     color albedo;
 
-    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf))
+    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf_val))
         return emitted;
+
+    // use cosine pdf, ignoring material scattered direction
+    cosine_pdf pdf(rec.normal);
+    scattered = ray(rec.p, pdf.generate());
+    pdf_val = pdf.value(scattered.direction());
 
     return emitted + 
         albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-               * ray_color(scattered, background, world, depth - 1) / pdf;
+               * ray_color(scattered, background, world, depth - 1) / pdf_val;
 }
 
 hittable_list earth() {
@@ -139,7 +145,7 @@ hittable_list cornell_box() {
 
     objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
     objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<xz_rect>(213, 343, 227, 332, 554, light));
+    objects.add(make_shared<flip_face>(make_shared<xz_rect>(213, 343, 227, 332, 554, light)));
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
     objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
