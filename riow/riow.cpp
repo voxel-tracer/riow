@@ -26,32 +26,24 @@ color ray_color(const ray& r, const color& background, const hittable_list& worl
     if (!world.hit(r, 0.001, infinity, rec))
         return background;
 
-    ray scattered;
+    scatter_record srec;
     color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-    double pdf_val;
-    color albedo;
-
-    if (!rec.mat_ptr->scatter(r, rec, albedo, scattered, pdf_val))
+    if (!rec.mat_ptr->scatter(r, rec, srec))
         return emitted;
 
-    // use cosine pdf, ignoring material scattered direction
-    //cosine_pdf pdf(rec.normal);
-    //scattered = ray(rec.p, pdf.generate());
-    //pdf_val = pdf.value(scattered.direction());
-    // sample light directly
-    //hittable_pdf light_pdf(lights, rec.p);
-    //scattered = ray(rec.p, light_pdf.generate());
-    //pdf_val = light_pdf.value(scattered.direction());
+    if (srec.is_specular) {
+        return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, depth - 1);
+    }
 
-    // multiple importance sampling of light and cosine pdf of lambertian material
-    auto p0 = make_shared<hittable_pdf>(lights, rec.p);
-    auto p1 = make_shared<cosine_pdf>(rec.normal);
-    mixture_pdf mixed_pdf(p0, p1);
-    scattered = ray(rec.p, mixed_pdf.generate());
-    pdf_val = mixed_pdf.value(scattered.direction());
+    // multiple importance sampling of light and material pdf
+    auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
+    mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
+
+    ray scattered = ray(rec.p, mixed_pdf.generate());
+    auto pdf_val = mixed_pdf.value(scattered.direction());
 
     return emitted + 
-        albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered)
+        srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
                * ray_color(scattered, background, world, lights, depth - 1) / pdf_val;
 }
 
@@ -98,6 +90,7 @@ hittable_list three_spheres() {
     return world;
 }
 
+/*
 hittable_list three_spheres_with_medium() {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -120,6 +113,7 @@ hittable_list three_spheres_with_medium() {
     world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
     return world;
 }
+*/
 
 hittable_list four_spheres() {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
@@ -161,15 +155,14 @@ hittable_list cornell_box() {
     objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
     objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
 
-    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
+    shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
+    shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), aluminum);
     box1 = make_shared<rotate_y>(box1, 15);
     box1 = make_shared<translate>(box1, vec3(265, 0, 295));
     objects.add(box1);
 
-    shared_ptr<hittable> box2 = make_shared<box>(point3(0, 0, 0), point3(165, 165, 165), white);
-    box2 = make_shared<rotate_y>(box2, -18);
-    box2 = make_shared<translate>(box2, vec3(130, 0, 65));
-    objects.add(box2);
+    auto glass = make_shared<dielectric>(1.5);
+    objects.add(make_shared<sphere>(point3(190, 90, 190), 90, glass));
 
     return objects;
 }
@@ -179,7 +172,7 @@ int main()
     // Image
 
     const auto aspect_ratio = 1.0 / 1.0;
-    const int image_width = 500;
+    const int image_width = 600;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
     const int samples_per_pixel = 1024;
     const int max_depth = 50;
@@ -187,14 +180,16 @@ int main()
     // World
 
     hittable_list world;
-    shared_ptr<hittable> lights =
-        make_shared<xz_rect>(213, 343, 227, 332, 554, shared_ptr<material>());
+    
+    auto lights = make_shared<hittable_list>();
+    lights->add(make_shared<xz_rect>(213, 343, 227, 332, 554, shared_ptr<material>()));
+    lights->add(make_shared<sphere>(point3(190, 90, 190), 90, shared_ptr<material>()));
 
     point3 lookfrom;
     point3 lookat;
     auto vfov = 40.0;
     auto aperture = 0.0;
-    color background = { 0, 0, 0 };
+    color background { 0, 0, 0 };
 
     switch (0) {
         case 1:
@@ -213,7 +208,7 @@ int main()
             aperture = 0.1;
             background = color(0.70, 0.80, 1.00);
             break;
-
+/*
         case 3:
             world = three_spheres_with_medium();
             lookfrom = point3(3, 2, 2);
@@ -222,7 +217,7 @@ int main()
             aperture = 0.1;
             background = color(0.70, 0.80, 1.00);
             break;
-
+*/
         case 4:
             world = four_spheres();
             lookfrom = point3(3, 2, 2);

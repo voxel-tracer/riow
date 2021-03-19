@@ -6,6 +6,7 @@
 #include "material.h"
 #include "texture.h"
 
+/*
 class constant_medium : public hittable {
 public:
     constant_medium(shared_ptr<hittable> b, double d, shared_ptr<texture> a)
@@ -20,6 +21,7 @@ public:
     shared_ptr<material> phase_function;
     double neg_inv_density;
 };
+
 
 bool constant_medium::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
     // Print occasional samples when debugging. To enable, set enableDebug true.
@@ -69,3 +71,4 @@ bool constant_medium::hit(const ray& r, double t_min, double t_max, hit_record& 
 
     return true;
 }
+*/
