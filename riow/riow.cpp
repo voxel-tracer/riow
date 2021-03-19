@@ -17,7 +17,7 @@
 
 using namespace std;
 
-color ray_color(const ray& r, const color& background, const hittable_list& world, int depth) {
+color ray_color(const ray& r, const color& background, const hittable_list& world, shared_ptr<hittable> lights, int depth) {
     // If we've exceeded the ray bounce limit, no more lights gathered
     if (depth == 0)
         return color{ 0, 0, 0 };
@@ -35,13 +35,24 @@ color ray_color(const ray& r, const color& background, const hittable_list& worl
         return emitted;
 
     // use cosine pdf, ignoring material scattered direction
-    cosine_pdf pdf(rec.normal);
-    scattered = ray(rec.p, pdf.generate());
-    pdf_val = pdf.value(scattered.direction());
+    //cosine_pdf pdf(rec.normal);
+    //scattered = ray(rec.p, pdf.generate());
+    //pdf_val = pdf.value(scattered.direction());
+    // sample light directly
+    //hittable_pdf light_pdf(lights, rec.p);
+    //scattered = ray(rec.p, light_pdf.generate());
+    //pdf_val = light_pdf.value(scattered.direction());
+
+    // multiple importance sampling of light and cosine pdf of lambertian material
+    auto p0 = make_shared<hittable_pdf>(lights, rec.p);
+    auto p1 = make_shared<cosine_pdf>(rec.normal);
+    mixture_pdf mixed_pdf(p0, p1);
+    scattered = ray(rec.p, mixed_pdf.generate());
+    pdf_val = mixed_pdf.value(scattered.direction());
 
     return emitted + 
         albedo * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-               * ray_color(scattered, background, world, depth - 1) / pdf_val;
+               * ray_color(scattered, background, world, lights, depth - 1) / pdf_val;
 }
 
 hittable_list earth() {
@@ -176,6 +187,8 @@ int main()
     // World
 
     hittable_list world;
+    shared_ptr<hittable> lights =
+        make_shared<xz_rect>(213, 343, 227, 332, 554, shared_ptr<material>());
 
     point3 lookfrom;
     point3 lookat;
@@ -254,7 +267,7 @@ int main()
                 auto u = (i + random_double()) / (image_width - 1);
                 auto v = (j + random_double()) / (image_height - 1);
                 ray r = cam.get_ray(u, v);
-                pixel_color += ray_color(r, background, world, max_depth);
+                pixel_color += ray_color(r, background, world, lights, max_depth);
             }
 
             write_color(cout, pixel_color, samples_per_pixel);
