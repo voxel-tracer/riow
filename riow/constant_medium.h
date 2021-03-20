@@ -6,7 +6,7 @@
 #include "material.h"
 #include "texture.h"
 
-/*
+
 class constant_medium : public hittable {
 public:
     constant_medium(shared_ptr<hittable> b, double d, shared_ptr<texture> a)
@@ -71,4 +71,3 @@ bool constant_medium::hit(const ray& r, double t_min, double t_max, hit_record& 
 
     return true;
 }
-*/

@@ -65,3 +65,16 @@ public:
 public:
     shared_ptr<pdf> p[2];
 };
+
+class uniform_sphere_pdf : public pdf {
+public:
+    uniform_sphere_pdf() { }
+
+    virtual double value(const vec3& direction) const {
+        return 1.0 / (4 * pi);
+    }
+
+    virtual vec3 generate() const {
+        return random_in_unit_sphere();
+    }
+};

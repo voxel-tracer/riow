@@ -161,8 +161,13 @@ hittable_list cornell_box() {
     box1 = make_shared<translate>(box1, vec3(265, 0, 295));
     objects.add(box1);
 
-    auto glass = make_shared<dielectric>(1.5);
-    objects.add(make_shared<sphere>(point3(190, 90, 190), 90, glass));
+    //auto glass = make_shared<dielectric>(1.5);
+    //objects.add(make_shared<sphere>(point3(190, 90, 190), 90, glass));
+
+    shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(190, 90, 190), 90, white);
+    objects.add(make_shared<constant_medium>(sphere1, 10.0, color(1, 1, 1)));
+
+    objects.add(make_shared<sphere>(point3(390, 90, 190), 90, white));
 
     return objects;
 }
@@ -183,7 +188,7 @@ int main()
     
     auto lights = make_shared<hittable_list>();
     lights->add(make_shared<xz_rect>(213, 343, 227, 332, 554, shared_ptr<material>()));
-    lights->add(make_shared<sphere>(point3(190, 90, 190), 90, shared_ptr<material>()));
+    //lights->add(make_shared<sphere>(point3(190, 90, 190), 90, shared_ptr<material>()));
 
     point3 lookfrom;
     point3 lookat;

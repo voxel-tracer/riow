@@ -121,7 +121,6 @@ public:
     shared_ptr<texture> emit;
 };
 
-/* TODO figure out how to get pdf working
 class isotropic : public material {
 public:
     isotropic(color c) : albedo(make_shared<solid_color>(c)) {}
@@ -129,12 +128,15 @@ public:
 
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const override {
         srec.is_specular = false;
-        srec.specular_ray = ray(rec.p, random_in_unit_sphere());
         srec.attenuation = albedo->value(rec.u, rec.v, rec.p);
+        srec.pdf_ptr = make_shared<uniform_sphere_pdf>();
         return true;
+    }
+
+    double scattering_pdf(const ray& in, const hit_record& rec, const ray& scattered) const override {
+        return 1 / (4 * pi);
     }
 
 public:
     shared_ptr<texture> albedo;
 };
-*/
