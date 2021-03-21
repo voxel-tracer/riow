@@ -90,9 +90,19 @@ public:
 class xor_rnd : public rnd {
 public:
     xor_rnd() : state(1) {}
+    xor_rnd(unsigned int s) :state(s) {}
 
     virtual double random_double() override {
         return (xor_shift_32() & 0xFFFFFF) / 16777216.0f;
+    }
+
+    static unsigned int wang_hash(unsigned int seed) {
+        seed = (seed ^ 61) ^ (seed >> 16);
+        seed *= 9;
+        seed = seed ^ (seed >> 4);
+        seed *= 0x27d4eb2d;
+        seed = seed ^ (seed >> 15);
+        return seed;
     }
 
 private:

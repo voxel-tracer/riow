@@ -164,9 +164,9 @@ hittable_list cornell_box() {
     //auto glass = make_shared<dielectric>(1.5);
     //objects.add(make_shared<sphere>(point3(190, 90, 190), 90, glass));
 
-    //shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(190, 90, 190), 90, white);
-    //objects.add(make_shared<constant_medium>(sphere1, 10.0, color(1, 1, 1)));
-    objects.add(make_shared<sphere>(point3(190, 90, 190), 90, white));
+    shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(190, 90, 190), 90, white);
+    objects.add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
+    //objects.add(make_shared<sphere>(point3(190, 90, 190), 90, white));
 
     //objects.add(make_shared<sphere>(point3(390, 90, 190), 90, white));
 
@@ -175,10 +175,6 @@ hittable_list cornell_box() {
 
 int main()
 {
-    // RNG
-    
-    auto rng = make_shared<xor_rnd>();
-
     // Image
 
     const auto aspect_ratio = 1.0 / 1.0;
@@ -262,17 +258,25 @@ int main()
 
     // Render
 
+    // to render pixel (x, y)
+    //  i = x;
+    //  j = (image_height - 1) - y;
+
     cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
 
     for (auto j = image_height - 1; j >= 0; --j) {
         cerr << "\rScanlines remaining: " << j << ' ' << flush;
         for (auto i = 0; i != image_width; ++i) {
             color pixel_color{ 0, 0, 0 };
+
+            auto local_seed = (xor_rnd::wang_hash(j * image_width + i) * 336343633) | 1;
+            auto local_rng = make_shared<xor_rnd>(local_seed);
+
             for (auto s = 0; s != samples_per_pixel; ++s) {
-                auto u = (i + rng->random_double()) / (image_width - 1);
-                auto v = (j + rng->random_double()) / (image_height - 1);
-                ray r = cam.get_ray(u, v, rng);
-                pixel_color += ray_color(r, background, world, lights, rng, max_depth);
+                auto u = (i + local_rng->random_double()) / (image_width - 1);
+                auto v = (j + local_rng->random_double()) / (image_height - 1);
+                ray r = cam.get_ray(u, v, local_rng);
+                pixel_color += ray_color(r, background, world, lights, local_rng, max_depth);
             }
 
             write_color(cout, pixel_color, samples_per_pixel);
