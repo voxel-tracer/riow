@@ -86,3 +86,25 @@ public:
         return rand() / (RAND_MAX + 1.0);
     }
 };
+
+class xor_rnd : public rnd {
+public:
+    xor_rnd() : state(1) {}
+
+    virtual double random_double() override {
+        return (xor_shift_32() & 0xFFFFFF) / 16777216.0f;
+    }
+
+private:
+    unsigned int xor_shift_32() {
+        unsigned int x = state;
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 15;
+        state = x;
+        return x;
+    }
+
+private:
+    unsigned int state;
+};

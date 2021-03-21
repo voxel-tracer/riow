@@ -177,7 +177,7 @@ int main()
 {
     // RNG
     
-    auto rng = make_shared<default_rnd>();
+    auto rng = make_shared<xor_rnd>();
 
     // Image
 
