@@ -153,6 +153,7 @@
     <ClInclude Include="onb.h" />
     <ClInclude Include="pdf.h" />
     <ClInclude Include="ray.h" />
+    <ClInclude Include="rnd.h" />
     <ClInclude Include="rtweekend.h" />
     <ClInclude Include="rtw_stb_image.h" />
     <ClInclude Include="sphere.h" />

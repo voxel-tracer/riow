@@ -16,20 +16,20 @@ public:
     void clear() { objects.clear(); }
     void add(shared_ptr<hittable> object) { objects.push_back(object); }
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override;
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
     virtual double pdf_value(const vec3& o, const vec3& v) const override;
-    virtual vec3 random(const vec3& o) const override;
+    virtual vec3 random(const vec3& o, shared_ptr<rnd> rng) const override;
 
     std::vector<shared_ptr<hittable>> objects;
 };
 
-bool hittable_list::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
+bool hittable_list::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
     hit_record temp_rec;
     bool hit_anything = false;
     auto closest_so_far = t_max;
 
     for (const auto& object : objects) {
-        if (object->hit(r, t_min, closest_so_far, temp_rec)) {
+        if (object->hit(r, t_min, closest_so_far, temp_rec, rng)) {
             hit_anything = true;
             closest_so_far = temp_rec.t;
             rec = temp_rec;
@@ -50,7 +50,7 @@ double hittable_list::pdf_value(const point3& o, const vec3& v) const {
 }
 
 
-vec3 hittable_list::random(const vec3& o) const {
+vec3 hittable_list::random(const vec3& o, shared_ptr<rnd> rng) const {
     auto int_size = static_cast<int>(objects.size());
-    return objects[random_int(0, int_size - 1)]->random(o);
+    return objects[rng->random_int(0, int_size - 1)]->random(o, rng);
 }

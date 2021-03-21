@@ -17,34 +17,34 @@
 
 using namespace std;
 
-color ray_color(const ray& r, const color& background, const hittable_list& world, shared_ptr<hittable> lights, int depth) {
+color ray_color(const ray& r, const color& background, const hittable_list& world, shared_ptr<hittable> lights, shared_ptr<rnd> rng, int depth) {
     // If we've exceeded the ray bounce limit, no more lights gathered
     if (depth == 0)
         return color{ 0, 0, 0 };
 
     hit_record rec;
-    if (!world.hit(r, 0.001, infinity, rec))
+    if (!world.hit(r, 0.001, infinity, rec, rng))
         return background;
 
     scatter_record srec;
     color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-    if (!rec.mat_ptr->scatter(r, rec, srec))
+    if (!rec.mat_ptr->scatter(r, rec, srec, rng))
         return emitted;
 
     if (srec.is_specular) {
-        return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, depth - 1);
+        return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, rng, depth - 1);
     }
 
     // multiple importance sampling of light and material pdf
     auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
     mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
 
-    ray scattered = ray(rec.p, mixed_pdf.generate());
+    ray scattered = ray(rec.p, mixed_pdf.generate(rng));
     auto pdf_val = mixed_pdf.value(scattered.direction());
 
     return emitted + 
         srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-               * ray_color(scattered, background, world, lights, depth - 1) / pdf_val;
+               * ray_color(scattered, background, world, lights, rng, depth - 1) / pdf_val;
 }
 
 hittable_list earth() {
@@ -175,6 +175,10 @@ hittable_list cornell_box() {
 
 int main()
 {
+    // RNG
+    
+    auto rng = make_shared<default_rnd>();
+
     // Image
 
     const auto aspect_ratio = 1.0 / 1.0;
@@ -265,10 +269,10 @@ int main()
         for (auto i = 0; i != image_width; ++i) {
             color pixel_color{ 0, 0, 0 };
             for (auto s = 0; s != samples_per_pixel; ++s) {
-                auto u = (i + random_double()) / (image_width - 1);
-                auto v = (j + random_double()) / (image_height - 1);
-                ray r = cam.get_ray(u, v);
-                pixel_color += ray_color(r, background, world, lights, max_depth);
+                auto u = (i + rng->random_double()) / (image_width - 1);
+                auto v = (j + rng->random_double()) / (image_height - 1);
+                ray r = cam.get_ray(u, v, rng);
+                pixel_color += ray_color(r, background, world, lights, rng, max_depth);
             }
 
             write_color(cout, pixel_color, samples_per_pixel);

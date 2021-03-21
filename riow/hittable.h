@@ -22,12 +22,12 @@ struct hit_record {
 
 class hittable {
 public:
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const = 0;
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const = 0;
     virtual double pdf_value(const point3& o, const vec3& v) const {
         return 0.0;
     }
 
-    virtual vec3 random(const point3& o) const {
+    virtual vec3 random(const point3& o, shared_ptr<rnd> rng) const {
         return vec3(1, 0, 0);
     }
 };
@@ -37,9 +37,9 @@ public:
     flip_face(shared_ptr<hittable> p) : ptr(p) {}
 
     virtual bool hit(
-        const ray& r, double t_min, double t_max, hit_record& rec) const override {
+        const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override {
 
-        if (!ptr->hit(r, t_min, t_max, rec))
+        if (!ptr->hit(r, t_min, t_max, rec, rng))
             return false;
 
         rec.front_face = !rec.front_face;
@@ -57,16 +57,16 @@ public:
         : ptr(p), offset(displacement) {}
 
     virtual bool hit(
-        const ray& r, double t_min, double t_max, hit_record& rec) const override;
+        const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
 
 public:
     shared_ptr<hittable> ptr;
     vec3 offset;
 };
 
-bool translate::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
+bool translate::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
     ray moved_r(r.origin() - offset, r.direction());
-    if (!ptr->hit(moved_r, t_min, t_max, rec))
+    if (!ptr->hit(moved_r, t_min, t_max, rec, rng))
         return false;
 
     rec.p += offset;
@@ -84,7 +84,7 @@ public:
     }
 
     virtual bool hit(
-        const ray& r, double t_min, double t_max, hit_record& rec) const override;
+        const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
 
 public:
     shared_ptr<hittable> ptr;
@@ -92,7 +92,7 @@ public:
     double cos_theta;
 };
 
-bool rotate_y::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
+bool rotate_y::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
     auto origin = r.origin();
     auto direction = r.direction();
 
@@ -104,7 +104,7 @@ bool rotate_y::hit(const ray& r, double t_min, double t_max, hit_record& rec) co
 
     ray rotated_r(origin, direction);
 
-    if (!ptr->hit(rotated_r, t_min, t_max, rec))
+    if (!ptr->hit(rotated_r, t_min, t_max, rec, rng))
         return false;
 
     auto p = rec.p;

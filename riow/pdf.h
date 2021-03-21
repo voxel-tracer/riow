@@ -8,7 +8,7 @@ public:
     virtual ~pdf() {}
 
     virtual double value(const vec3& direction) const = 0;
-    virtual vec3 generate() const = 0;
+    virtual vec3 generate(shared_ptr<rnd> rng) const = 0;
 };
 
 class cosine_pdf : public pdf {
@@ -20,8 +20,8 @@ public:
         return cosine <= 0 ? 0 : cosine / pi;
     }
 
-    virtual vec3 generate() const {
-        return uvw.local(random_cosine_direction());
+    virtual vec3 generate(shared_ptr<rnd> rng) const {
+        return uvw.local(rng->random_cosine_direction());
     }
 
 public:
@@ -36,8 +36,8 @@ public:
         return ptr->pdf_value(o, direction);
     }
 
-    virtual vec3 generate() const {
-        return ptr->random(o);
+    virtual vec3 generate(shared_ptr<rnd> rng) const {
+        return ptr->random(o, rng);
     }
 public:
     point3 o;
@@ -55,11 +55,11 @@ public:
         return 0.5 * p[0]->value(direction) + 0.5 * p[1]->value(direction);
     }
 
-    virtual vec3 generate() const {
-        if (random_double() < 0.5)
-            return p[0]->generate();
+    virtual vec3 generate(shared_ptr<rnd> rng) const {
+        if (rng->random_double() < 0.5)
+            return p[0]->generate(rng);
         else
-            return p[1]->generate();
+            return p[1]->generate(rng);
     }
 
 public:
@@ -74,7 +74,7 @@ public:
         return 1.0 / (4 * pi);
     }
 
-    virtual vec3 generate() const {
-        return random_in_unit_sphere();
+    virtual vec3 generate(shared_ptr<rnd> rng) const {
+        return rng->random_in_unit_sphere();
     }
 };

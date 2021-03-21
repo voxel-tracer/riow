@@ -29,8 +29,8 @@ public:
         lens_radius = aperture / 2;
     }
 
-    ray get_ray(double s, double t) const {
-        vec3 rd = lens_radius * random_in_unit_disk();
+    ray get_ray(double s, double t, shared_ptr<rnd> rng) const {
+        vec3 rd = lens_radius * rng->random_in_unit_disk();
         vec3 offset = u * rd.x() + v * rd.y();
 
         return ray{

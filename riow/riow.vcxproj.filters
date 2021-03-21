@@ -71,5 +71,8 @@
     <ClInclude Include="pdf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="rnd.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

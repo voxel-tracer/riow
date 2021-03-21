@@ -51,14 +51,6 @@ public:
         return (fabs(e[0]) < s) && (fabs(e[1]) < s) && (fabs(e[2]) < s);
     }
 
-    inline static vec3 random() {
-        return vec3{ random_double(), random_double(), random_double() };
-    }
-
-    inline static vec3 random(double min, double max) {
-        return vec3{ random_double(min, max), random_double(min, max), random_double(min, max) };
-    }
-
 public:
     double e[3];
 };
@@ -114,46 +106,6 @@ inline vec3 unit_vector(vec3 v) {
     return v / v.length();
 }
 
-vec3 random_in_unit_sphere() {
-    while (true) {
-        auto p = vec3::random(-1, 1);
-        if (p.length_squared() >= 1) continue;
-        return p;
-    }
-}
-
-vec3 random_unit_vector() {
-    return unit_vector(random_in_unit_sphere());
-}
-
-vec3 random_in_hemisphere(const vec3& normal) {
-    vec3 in_unit_sphere = random_in_unit_sphere();
-    if (dot(in_unit_sphere, normal) > 0.0) // In the same hemisphere as the normal
-        return in_unit_sphere;
-    else
-        return -in_unit_sphere;
-}
-
-vec3 random_in_unit_disk() {
-    while (true) {
-        auto p = vec3{ random_double(-1,1), random_double(-1,1), 0 };
-        if (p.length_squared() >= 1.0) continue;
-        return p;
-    }
-}
-
-vec3 random_cosine_direction() {
-    auto r1 = random_double();
-    auto r2 = random_double();
-    auto z = sqrt(1 - r2);
-
-    auto phi = 2 * pi * r1;
-    auto x = cos(phi) * sqrt(r2);
-    auto y = sin(phi) * sqrt(r2);
-
-    return vec3(x, y, z);
-}
-
 vec3 reflect(const vec3& v, const vec3& n) {
     return v - 2 * dot(v, n) * n;
 }
@@ -166,14 +118,3 @@ vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
     return r_out_perp + r_out_parallel;
 }
 
-inline vec3 random_to_sphere(double radius, double distance_squared) {
-    auto r1 = random_double();
-    auto r2 = random_double();
-    auto z = 1 + r2 * (sqrt(1 - radius * radius / distance_squared) - 1);
-
-    auto phi = 2 * pi * r1;
-    auto x = cos(phi) * sqrt(1 - z * z);
-    auto y = sin(phi) * sqrt(1 - z * z);
-
-    return vec3(x, y, z);
-}

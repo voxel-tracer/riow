@@ -20,7 +20,7 @@ public:
         return color(0, 0, 0);
     }
 
-    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const {
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const {
         return false;
     }
 
@@ -34,7 +34,7 @@ public:
     lambertian(const color& a) : albedo(make_shared<solid_color>(a)) {}
     lambertian(shared_ptr<texture> a) : albedo(a) {}
 
-    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const override {
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         srec.is_specular = false;
         srec.attenuation = albedo->value(rec.u, rec.v, rec.p);
         srec.pdf_ptr = make_shared<cosine_pdf>(rec.normal);
@@ -53,9 +53,9 @@ class metal : public material {
 public:
     metal(const color& a, double f = 0.0) : albedo(a), fuzz(f) {}
 
-    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const override {
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         vec3 reflected = reflect(in.direction(), rec.normal);
-        srec.specular_ray = ray{ rec.p, reflected + fuzz * random_in_unit_sphere() };
+        srec.specular_ray = ray{ rec.p, reflected + fuzz * rng->random_in_unit_sphere() };
         srec.attenuation = albedo;
         srec.is_specular = true;
         srec.pdf_ptr = nullptr;
@@ -70,7 +70,7 @@ class dielectric: public material {
 public:
     dielectric(double index_of_refraction) : ir(index_of_refraction) {}
 
-    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const override {
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         srec.is_specular = true;
         srec.pdf_ptr = nullptr;
         srec.attenuation = color{ 1.0, 1.0, 1.0 };
@@ -82,7 +82,7 @@ public:
         bool cannot_refract = refraction_ratio * sin_theta > 1.0;
         vec3 direction;
 
-        if (cannot_refract || reflectance(cos_theta, ir) > random_double())
+        if (cannot_refract || reflectance(cos_theta, ir) > rng->random_double())
             direction = reflect(in.direction(), rec.normal);
         else
             direction = refract(in.direction(), rec.normal, refraction_ratio);
@@ -107,10 +107,6 @@ public:
     diffuse_light(shared_ptr<texture> a) : emit(a) {}
     diffuse_light(color c) : emit(make_shared<solid_color>(c)) {}
 
-    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const override {
-        return false;
-    }
-
     virtual color emitted(const ray& in, const hit_record& rec, double u, double v, const point3& p) const override {
         if (rec.front_face)
             return emit->value(u, v, p);
@@ -126,7 +122,7 @@ public:
     isotropic(color c) : albedo(make_shared<solid_color>(c)) {}
     isotropic(shared_ptr<texture> a) : albedo(a) {}
 
-    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec) const override {
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         srec.is_specular = false;
         srec.attenuation = albedo->value(rec.u, rec.v, rec.p);
         srec.pdf_ptr = make_shared<uniform_sphere_pdf>();

@@ -13,7 +13,7 @@ public:
         double _x0, double _x1, double _y0, double _y1, double _k, shared_ptr<material> mat
     ) : x0(_x0), x1(_x1), y0(_y0), y1(_y1), k(_k), mp(mat) {};
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override;
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
 
 public:
     shared_ptr<material> mp;
@@ -28,11 +28,11 @@ public:
         double _x0, double _x1, double _z0, double _z1, double _k, shared_ptr<material> mat
     ) : x0(_x0), x1(_x1), z0(_z0), z1(_z1), k(_k), mp(mat) {};
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override;
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
 
     virtual double pdf_value(const point3& origin, const vec3& v) const override {
         hit_record rec;
-        if (!this->hit(ray(origin, v), 0.001, infinity, rec))
+        if (!this->hit(ray(origin, v), 0.001, infinity, rec, nullptr))
             return 0.0;
 
         auto area = (x1 - x0) * (z1 - z0);
@@ -42,8 +42,8 @@ public:
         return distance_squared / (cosine * area);
     }
 
-    virtual vec3 random(const point3& origin) const override {
-        auto random_point = point3(random_double(x0, x1), k, random_double(z0, z1));
+    virtual vec3 random(const point3& origin, shared_ptr<rnd> rng) const override {
+        auto random_point = point3(rng->random_double(x0, x1), k, rng->random_double(z0, z1));
         return random_point - origin;
     }
 
@@ -60,14 +60,14 @@ public:
         double _y0, double _y1, double _z0, double _z1, double _k, shared_ptr<material> mat
     ) : y0(_y0), y1(_y1), z0(_z0), z1(_z1), k(_k), mp(mat) {};
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override;
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
 
 public:
     shared_ptr<material> mp;
     double y0, y1, z0, z1, k;
 };
 
-bool xy_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
+bool xy_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
     auto t = (k - r.origin().z()) / r.direction().z();
     if (t < t_min || t > t_max)
         return false;
@@ -88,7 +88,7 @@ bool xy_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec) con
     return true;
 }
 
-bool xz_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
+bool xz_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
     auto t = (k - r.origin().y()) / r.direction().y();
     if (t < t_min || t > t_max)
         return false;
@@ -109,7 +109,7 @@ bool xz_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec) con
     return true;
 }
 
-bool yz_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
+bool yz_rect::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
     auto t = (k - r.origin().x()) / r.direction().x();
     if (t < t_min || t > t_max)
         return false;
