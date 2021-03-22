@@ -17,13 +17,13 @@
 
 using namespace std;
 
-color ray_color(const ray& r, const color& background, const hittable_list& world, shared_ptr<hittable> lights, shared_ptr<rnd> rng, int depth) {
+color ray_color(const ray& r, const color& background, const shared_ptr<hittable> world, const shared_ptr<hittable> lights, shared_ptr<rnd> rng, int depth) {
     // If we've exceeded the ray bounce limit, no more lights gathered
     if (depth == 0)
         return color{ 0, 0, 0 };
 
     hit_record rec;
-    if (!world.hit(r, 0.001, infinity, rec, rng))
+    if (!world->hit(r, 0.001, infinity, rec, rng))
         return background;
 
     scatter_record srec;
@@ -90,30 +90,28 @@ hittable_list three_spheres() {
     return world;
 }
 
-/*
-hittable_list three_spheres_with_medium() {
+void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
 
     auto material_right = make_shared<dielectric>(1.5);
     auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
 
-    hittable_list world;
-    world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+    objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
 
     auto white = make_shared<lambertian>(color(0.73, 0.73, 0.73));
     shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, white);
-    world.add(make_shared<constant_medium>(sphere1, 10.0, color(1, 1, 1)));
+    objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
 
     auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.75), 0.1, material_light));
+    auto light_sphere = make_shared<sphere>(point3(0.0, 0.0, -1.75), 0.1, material_light);
+    objects->add(light_sphere);
+    sampled->add(light_sphere);
 
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
-    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
-    return world;
+    objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+    objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+    objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
-*/
 
 hittable_list four_spheres() {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
@@ -140,37 +138,34 @@ hittable_list four_spheres() {
     return world;
 }
 
-hittable_list cornell_box() {
-    hittable_list objects;
-
+void cornell_box(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
     auto red = make_shared<lambertian>(color(.65, .05, .05));
     auto white = make_shared<lambertian>(color(.73, .73, .73));
     auto green = make_shared<lambertian>(color(.12, .45, .15));
     auto light = make_shared<diffuse_light>(color(15, 15, 15));
 
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
-    objects.add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
-    objects.add(make_shared<flip_face>(make_shared<xz_rect>(213, 343, 227, 332, 554, light)));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
-    objects.add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
-    objects.add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
+    objects->add(make_shared<yz_rect>(0, 555, 0, 555, 555, green));
+    objects->add(make_shared<yz_rect>(0, 555, 0, 555, 0, red));
+
+    auto light_quad = make_shared<xz_rect>(213, 343, 227, 332, 554, light);
+    objects->add(make_shared<flip_face>(light_quad)); // flip_face doesn't support hittable sampling
+    sampled->add(light_quad);
+    
+    objects->add(make_shared<xz_rect>(0, 555, 0, 555, 555, white));
+    objects->add(make_shared<xz_rect>(0, 555, 0, 555, 0, white));
+    objects->add(make_shared<xy_rect>(0, 555, 0, 555, 555, white));
 
     //shared_ptr<material> aluminum = make_shared<metal>(color(0.8, 0.85, 0.88), 0.0);
     shared_ptr<hittable> box1 = make_shared<box>(point3(0, 0, 0), point3(165, 330, 165), white);
     box1 = make_shared<rotate_y>(box1, 15);
     box1 = make_shared<translate>(box1, vec3(265, 0, 295));
-    objects.add(box1);
+    objects->add(box1);
 
     //auto glass = make_shared<dielectric>(1.5);
     //objects.add(make_shared<sphere>(point3(190, 90, 190), 90, glass));
 
     shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(190, 90, 190), 90, white);
-    objects.add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
-    //objects.add(make_shared<sphere>(point3(190, 90, 190), 90, white));
-
-    //objects.add(make_shared<sphere>(point3(390, 90, 190), 90, white));
-
-    return objects;
+    objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
 }
 
 int main()
@@ -185,11 +180,8 @@ int main()
 
     // World
 
-    hittable_list world;
-    
+    auto world = make_shared<hittable_list>();
     auto lights = make_shared<hittable_list>();
-    lights->add(make_shared<xz_rect>(213, 343, 227, 332, 554, shared_ptr<material>()));
-    //lights->add(make_shared<sphere>(point3(190, 90, 190), 90, shared_ptr<material>()));
 
     point3 lookfrom;
     point3 lookat;
@@ -197,9 +189,9 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (0) {
+    switch (3) {
         case 1:
-            world = earth();
+            //world = earth();
             background = color(0.70, 0.80, 1.00);
             lookfrom = point3(13, 2, 3);
             lookat = point3(0, 0, 0);
@@ -207,25 +199,25 @@ int main()
             break;
 
         case 2:
-            world = three_spheres();
+            //world = three_spheres();
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
             aperture = 0.1;
             background = color(0.70, 0.80, 1.00);
             break;
-/*
+
         case 3:
-            world = three_spheres_with_medium();
+            three_spheres_with_medium(world, lights);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
             aperture = 0.1;
             background = color(0.70, 0.80, 1.00);
             break;
-*/
+
         case 4:
-            world = four_spheres();
+            //world = four_spheres();
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 30.0;
@@ -234,7 +226,7 @@ int main()
             break;
 
         case 5:
-            world = diffuse_spheres();
+            //world = diffuse_spheres();
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -244,7 +236,7 @@ int main()
 
         default:
         case 6:
-            world = cornell_box();
+            cornell_box(world, lights);
             lookfrom = point3(278, 278, -800);
             lookat = point3(278, 278, 0);
             break;
