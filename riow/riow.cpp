@@ -17,7 +17,7 @@
 
 using namespace std;
 
-color ray_color(const ray& r, const color& background, const shared_ptr<hittable> world, const shared_ptr<hittable> lights, shared_ptr<rnd> rng, int depth) {
+color ray_color(const ray& r, const color& background, const shared_ptr<hittable> world, const shared_ptr<hittable_list> lights, shared_ptr<rnd> rng, int depth) {
     // If we've exceeded the ray bounce limit, no more lights gathered
     if (depth == 0)
         return color{ 0, 0, 0 };
@@ -35,12 +35,20 @@ color ray_color(const ray& r, const color& background, const shared_ptr<hittable
         return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, rng, depth - 1);
     }
 
-    // multiple importance sampling of light and material pdf
-    auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
-    mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
+    ray scattered;
+    double pdf_val;
+    if (lights->objects.empty()) {
+        // sample material directly
+        scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
+        pdf_val = srec.pdf_ptr->value(scattered.direction());
+    } else {
+        // multiple importance sampling of light and material pdf
+        auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
+        mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
 
-    ray scattered = ray(rec.p, mixed_pdf.generate(rng));
-    auto pdf_val = mixed_pdf.value(scattered.direction());
+        scattered = ray(rec.p, mixed_pdf.generate(rng));
+        pdf_val = mixed_pdf.value(scattered.direction());
+    }
 
     return emitted + 
         srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
@@ -72,7 +80,7 @@ hittable_list diffuse_spheres() {
     return world;
 }
 
-hittable_list three_spheres() {
+void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
 
@@ -81,13 +89,11 @@ hittable_list three_spheres() {
     auto material_right = make_shared<dielectric>(1.5);
     auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
 
-    hittable_list world;
-    world.add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
-    world.add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
-    world.add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
-    world.add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
-    return world;
+    objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+    objects->add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
+    objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
+    objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+    objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
 void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
@@ -189,7 +195,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (3) {
+    switch (2) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -199,7 +205,7 @@ int main()
             break;
 
         case 2:
-            //world = three_spheres();
+            three_spheres(world, lights);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
