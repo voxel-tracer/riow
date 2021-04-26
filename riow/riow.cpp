@@ -14,6 +14,8 @@
 #include "pdf.h"
 
 #include <iostream>
+#include <yocto/yocto_image.h>
+#include <yocto/yocto_sceneio.h>
 
 using namespace std;
 
@@ -174,6 +176,36 @@ void cornell_box(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sa
     objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
 }
 
+yocto::vec4f convert(const color& pixel_color, unsigned spp, bool gamma_correct = true) {
+    auto r = pixel_color.x();
+    auto g = pixel_color.y();
+    auto b = pixel_color.z();
+
+    // Replace NaN components with zero
+    if (std::isnan(r)) r = 0.0;
+    if (std::isnan(g)) g = 0.0;
+    if (std::isnan(b)) b = 0.0;
+
+    auto scale = 1.0 / spp;
+
+    if (gamma_correct) {
+        r = clamp(sqrt(scale * r), 0.0, 1.0);
+        g = clamp(sqrt(scale * g), 0.0, 1.0);
+        b = clamp(sqrt(scale * b), 0.0, 1.0);
+    } else {
+        r = scale * r;
+        g = scale * g;
+        b = scale * b;
+    }
+
+    return { 
+        static_cast<float>(r), 
+        static_cast<float>(g),
+        static_cast<float>(b),
+        1.0f 
+    };
+}
+
 int main()
 {
     // Image
@@ -181,7 +213,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1024;
+    const int samples_per_pixel = 1;
     const int max_depth = 50;
 
     // World
@@ -255,12 +287,11 @@ int main()
     camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus);
 
     // Render
+    auto image = yocto::make_image(image_width, image_height, false);
 
     // to render pixel (x, y)
     //  i = x;
-    //  j = (image_height - 1) - y;
-
-    cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+    //  j = (image_height - 1) - y; => y = (image_height - 1) - j;
 
     for (auto j = image_height - 1; j >= 0; --j) {
         cerr << "\rScanlines remaining: " << j << ' ' << flush;
@@ -277,9 +308,13 @@ int main()
                 pixel_color += ray_color(r, background, world, lights, local_rng, max_depth);
             }
 
-            write_color(cout, pixel_color, samples_per_pixel);
+            //write_color(cout, pixel_color, samples_per_pixel);
+            yocto::set_pixel(image, i, (image_height - 1) - j, convert(pixel_color, samples_per_pixel));
         }
     }
 
-    cerr << "\nDone.\n";
+    auto error = string{};
+    if (!save_image("out.png", image, error)) {
+        cerr << "Failed to save image: " << error << endl;
+    }
 }
