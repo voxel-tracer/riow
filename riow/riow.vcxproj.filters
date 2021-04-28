@@ -13,9 +13,18 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\tool">
+      <UniqueIdentifier>{cbc494ad-6ad6-4f4b-b00c-fcdeb9c91121}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="riow.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tool\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tool\window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -73,6 +82,24 @@
     </ClInclude>
     <ClInclude Include="rnd.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tool\camera.h">
+      <Filter>Header Files\tool</Filter>
+    </ClInclude>
+    <ClInclude Include="tool\scene.h">
+      <Filter>Header Files\tool</Filter>
+    </ClInclude>
+    <ClInclude Include="tool\screen_texture.h">
+      <Filter>Header Files\tool</Filter>
+    </ClInclude>
+    <ClInclude Include="tool\shader.h">
+      <Filter>Header Files\tool</Filter>
+    </ClInclude>
+    <ClInclude Include="tool\window.h">
+      <Filter>Header Files\tool</Filter>
+    </ClInclude>
+    <ClInclude Include="tool\zoom_pixel.h">
+      <Filter>Header Files\tool</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

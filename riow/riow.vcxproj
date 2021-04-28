@@ -148,6 +148,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="riow.cpp" />
+    <ClCompile Include="tool\glad.c" />
+    <ClCompile Include="tool\window.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="aarect.h" />
@@ -167,6 +169,12 @@
     <ClInclude Include="sphere.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="texture.h" />
+    <ClInclude Include="tool\camera.h" />
+    <ClInclude Include="tool\scene.h" />
+    <ClInclude Include="tool\screen_texture.h" />
+    <ClInclude Include="tool\shader.h" />
+    <ClInclude Include="tool\window.h" />
+    <ClInclude Include="tool\zoom_pixel.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -17,6 +17,8 @@
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
 
+#include "tool/window.h"
+
 using namespace std;
 
 color ray_color(const ray& r, const color& background, const shared_ptr<hittable> world, const shared_ptr<hittable_list> lights, shared_ptr<rnd> rng, int depth) {
@@ -206,6 +208,53 @@ yocto::vec4f convert(const color& pixel_color, unsigned spp, bool gamma_correct 
     };
 }
 
+shared_ptr<tool::scene> init_scene() {
+    auto scene = yocto::scene_model{};
+    {
+        auto shape = yocto::scene_shape{};
+        // make shape with 32 steps in resolution and scale of 1
+        auto quads = yocto::vector<yocto::vec4i>{};
+        yocto::make_sphere(quads, shape.positions, shape.normals, shape.texcoords, 8, 1, 1);
+        // yocto::make_monkey(quads, positions, 1);
+        shape.triangles = quads_to_triangles(quads);
+        scene.shapes.push_back(shape);
+        scene.materials.push_back({}); // create a black material directly
+
+        {
+            auto instance = yocto::scene_instance{};
+            instance.shape = 0;
+            instance.material = 0;
+            instance.frame =
+                yocto::translation_frame({ 0.0f, 0.0f, -1.0f }) *
+                yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
+            scene.instances.push_back(instance);
+        }
+        {
+            auto instance = yocto::scene_instance{};
+            instance.shape = 0;
+            instance.material = 0;
+            instance.frame =
+                yocto::translation_frame({ -1.0f, 0.0f, -1.0f }) *
+                yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
+            scene.instances.push_back(instance);
+        }
+        {
+            auto instance = yocto::scene_instance{};
+            instance.shape = 0;
+            instance.material = 0;
+            instance.frame =
+                yocto::translation_frame({ 1.0f, 0.0f, -1.0f }) *
+                yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
+            scene.instances.push_back(instance);
+        }
+    }
+
+    auto stats = yocto::scene_stats(scene);
+    for (auto stat : stats) cerr << stat << endl;
+
+    return make_shared<tool::scene>(scene);
+}
+
 int main()
 {
     // Image
@@ -316,5 +365,16 @@ int main()
     auto error = string{};
     if (!save_image("out.png", image, error)) {
         cerr << "Failed to save image: " << error << endl;
+        return -1;
     }
+
+    // now display a window
+    tool::window w{
+        image,
+        { 0.0f, 0.0f, -1.0f }, // look_at
+        { 3.0f, 2.0f, 2.0f }  // look_from
+    };
+    w.set_scene(init_scene());
+
+    w.render();
 }
