@@ -14,6 +14,8 @@
 #include "pdf.h"
 
 #include <iostream>
+#include <functional>
+
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
 
@@ -21,22 +23,36 @@
 
 using namespace std;
 
-color ray_color(const ray& r, const color& background, const shared_ptr<hittable> world, const shared_ptr<hittable_list> lights, shared_ptr<rnd> rng, int depth) {
+enum class render_state {
+    SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH
+};
+
+color ray_color(
+        const ray& r, const color& background, const shared_ptr<hittable> world, 
+        const shared_ptr<hittable_list> lights, shared_ptr<rnd> rng, int depth,
+        std::function<void (const ray&, const ray&, render_state)> callback) {
     // If we've exceeded the ray bounce limit, no more lights gathered
-    if (depth == 0)
+    if (depth == 0) {
+        callback(r, r, render_state::MAXDEPTH);
         return color{ 0, 0, 0 };
+    }
 
     hit_record rec;
-    if (!world->hit(r, 0.001, infinity, rec, rng))
+    if (!world->hit(r, 0.001, infinity, rec, rng)) {
+        callback(r, r, render_state::NOHIT);
         return background;
+    }
 
     scatter_record srec;
     color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-    if (!rec.mat_ptr->scatter(r, rec, srec, rng))
+    if (!rec.mat_ptr->scatter(r, rec, srec, rng)) {
+        callback(r, r, render_state::ABSORBED);
         return emitted;
+    }
 
     if (srec.is_specular) {
-        return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, rng, depth - 1);
+        callback(r, srec.specular_ray, render_state::SPECULAR);
+        return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, rng, depth - 1, callback);
     }
 
     ray scattered;
@@ -54,9 +70,10 @@ color ray_color(const ray& r, const color& background, const shared_ptr<hittable
         pdf_val = mixed_pdf.value(scattered.direction());
     }
 
-    return emitted + 
+    callback(r, scattered, render_state::DIFFUSE);
+    return emitted +
         srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-               * ray_color(scattered, background, world, lights, rng, depth - 1) / pdf_val;
+               * ray_color(scattered, background, world, lights, rng, depth - 1, callback) / pdf_val;
 }
 
 hittable_list earth() {
@@ -354,10 +371,10 @@ int main()
                 auto u = (i + local_rng->random_double()) / (image_width - 1);
                 auto v = (j + local_rng->random_double()) / (image_height - 1);
                 ray r = cam.get_ray(u, v, local_rng);
-                pixel_color += ray_color(r, background, world, lights, local_rng, max_depth);
+                pixel_color += ray_color(r, background, world, lights, local_rng, max_depth,
+                    [](const ray& r, const ray& s, render_state state) {});
             }
 
-            //write_color(cout, pixel_color, samples_per_pixel);
             yocto::set_pixel(image, i, (image_height - 1) - j, convert(pixel_color, samples_per_pixel));
         }
     }
