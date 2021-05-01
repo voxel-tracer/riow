@@ -19,62 +19,10 @@
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
 
+#include "pathtracer.h"
 #include "tool/window.h"
 
 using namespace std;
-
-enum class render_state {
-    SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH
-};
-
-color ray_color(
-        const ray& r, const color& background, const shared_ptr<hittable> world, 
-        const shared_ptr<hittable_list> lights, shared_ptr<rnd> rng, int depth,
-        std::function<void (const ray&, const ray&, render_state)> callback) {
-    // If we've exceeded the ray bounce limit, no more lights gathered
-    if (depth == 0) {
-        callback(r, r, render_state::MAXDEPTH);
-        return color{ 0, 0, 0 };
-    }
-
-    hit_record rec;
-    if (!world->hit(r, 0.001, infinity, rec, rng)) {
-        callback(r, r, render_state::NOHIT);
-        return background;
-    }
-
-    scatter_record srec;
-    color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-    if (!rec.mat_ptr->scatter(r, rec, srec, rng)) {
-        callback(r, r, render_state::ABSORBED);
-        return emitted;
-    }
-
-    if (srec.is_specular) {
-        callback(r, srec.specular_ray, render_state::SPECULAR);
-        return srec.attenuation * ray_color(srec.specular_ray, background, world, lights, rng, depth - 1, callback);
-    }
-
-    ray scattered;
-    double pdf_val;
-    if (lights->objects.empty()) {
-        // sample material directly
-        scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
-        pdf_val = srec.pdf_ptr->value(scattered.direction());
-    } else {
-        // multiple importance sampling of light and material pdf
-        auto light_ptr = make_shared<hittable_pdf>(lights, rec.p);
-        mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
-
-        scattered = ray(rec.p, mixed_pdf.generate(rng));
-        pdf_val = mixed_pdf.value(scattered.direction());
-    }
-
-    callback(r, scattered, render_state::DIFFUSE);
-    return emitted +
-        srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-               * ray_color(scattered, background, world, lights, rng, depth - 1, callback) / pdf_val;
-}
 
 hittable_list earth() {
     auto earth_texture = make_shared<image_texture>("earthmap.jpg");
@@ -195,36 +143,6 @@ void cornell_box(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sa
     objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
 }
 
-yocto::vec4f convert(const color& pixel_color, unsigned spp, bool gamma_correct = true) {
-    auto r = pixel_color.x();
-    auto g = pixel_color.y();
-    auto b = pixel_color.z();
-
-    // Replace NaN components with zero
-    if (std::isnan(r)) r = 0.0;
-    if (std::isnan(g)) g = 0.0;
-    if (std::isnan(b)) b = 0.0;
-
-    auto scale = 1.0 / spp;
-
-    if (gamma_correct) {
-        r = clamp(sqrt(scale * r), 0.0, 1.0);
-        g = clamp(sqrt(scale * g), 0.0, 1.0);
-        b = clamp(sqrt(scale * b), 0.0, 1.0);
-    } else {
-        r = scale * r;
-        g = scale * g;
-        b = scale * b;
-    }
-
-    return { 
-        static_cast<float>(r), 
-        static_cast<float>(g),
-        static_cast<float>(b),
-        1.0f 
-    };
-}
-
 shared_ptr<tool::scene> init_scene() {
     auto scene = yocto::scene_model{};
     {
@@ -279,7 +197,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1;
+    const int samples_per_pixel = 1024;
     const int max_depth = 50;
 
     // World
@@ -350,44 +268,28 @@ int main()
     vec3 vup{ 0, 1, 0 };
     auto dist_to_focus = (lookfrom - lookat).length();
 
-    camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus);
+    auto cam = make_shared<camera>(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus);
+    auto image = make_shared<yocto::color_image>(yocto::make_image(image_width, image_height, false));
 
     // Render
-    auto image = yocto::make_image(image_width, image_height, false);
+    scene_desc scene{
+        background,
+        world,
+        lights
+    };
+    auto pt = make_unique<pathtracer>(cam, image, scene, samples_per_pixel, max_depth);
 
-    // to render pixel (x, y)
-    //  i = x;
-    //  j = (image_height - 1) - y; => y = (image_height - 1) - j;
-
-    for (auto j = image_height - 1; j >= 0; --j) {
-        cerr << "\rScanlines remaining: " << j << ' ' << flush;
-        for (auto i = 0; i != image_width; ++i) {
-            color pixel_color{ 0, 0, 0 };
-
-            auto local_seed = (xor_rnd::wang_hash(j * image_width + i) * 336343633) | 1;
-            auto local_rng = make_shared<xor_rnd>(local_seed);
-
-            for (auto s = 0; s != samples_per_pixel; ++s) {
-                auto u = (i + local_rng->random_double()) / (image_width - 1);
-                auto v = (j + local_rng->random_double()) / (image_height - 1);
-                ray r = cam.get_ray(u, v, local_rng);
-                pixel_color += ray_color(r, background, world, lights, local_rng, max_depth,
-                    [](const ray& r, const ray& s, render_state state) {});
-            }
-
-            yocto::set_pixel(image, i, (image_height - 1) - j, convert(pixel_color, samples_per_pixel));
-        }
-    }
+    pt->Render();
 
     auto error = string{};
-    if (!save_image("out.png", image, error)) {
+    if (!save_image("out.png", *image, error)) {
         cerr << "Failed to save image: " << error << endl;
         return -1;
     }
 
     // now display a window
     tool::window w{
-        image,
+        *image,
         { 0.0f, 0.0f, -1.0f }, // look_at
         { 3.0f, 2.0f, 2.0f }  // look_from
     };

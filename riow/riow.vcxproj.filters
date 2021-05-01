@@ -101,5 +101,8 @@
     <ClInclude Include="tool\zoom_pixel.h">
       <Filter>Header Files\tool</Filter>
     </ClInclude>
+    <ClInclude Include="pathtracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
