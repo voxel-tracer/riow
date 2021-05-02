@@ -12,6 +12,7 @@
 #include "scene.h"
 #include "screen_texture.h"
 #include "zoom_pixel.h"
+#include "../tracer.h"
 
 namespace tool {
     class window {
@@ -29,11 +30,13 @@ namespace tool {
         unique_ptr<screen_texture> screen;
         unique_ptr<zoom_pixel> pixel;
 
+        shared_ptr<tracer> pt;
+
         void switchTo3D(bool force);
         void switchTo2D(bool force);
 
     public:
-        window(const yocto::color_image& image, glm::vec3 look_at, glm::vec3 look_from);
+        window(const yocto::color_image& image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
         ~window();
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }

@@ -176,6 +176,7 @@
     <ClInclude Include="tool\shader.h" />
     <ClInclude Include="tool\window.h" />
     <ClInclude Include="tool\zoom_pixel.h" />
+    <ClInclude Include="tracer.h" />
     <ClInclude Include="vec3.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -104,5 +104,8 @@
     <ClInclude Include="pathtracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="tracer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

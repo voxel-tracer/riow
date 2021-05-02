@@ -1,6 +1,9 @@
 // riow.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#define VEC3_IMPL
+#include "vec3.h"
+
 #include "rtweekend.h"
 
 #include "color.h"
@@ -197,7 +200,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1024;
+    const int samples_per_pixel = 128;
     const int max_depth = 50;
 
     // World
@@ -277,7 +280,7 @@ int main()
         world,
         lights
     };
-    auto pt = make_unique<pathtracer>(cam, image, scene, samples_per_pixel, max_depth);
+    shared_ptr<tracer> pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth);
 
     pt->Render();
 
@@ -290,6 +293,7 @@ int main()
     // now display a window
     tool::window w{
         *image,
+        pt,
         { 0.0f, 0.0f, -1.0f }, // look_at
         { 3.0f, 2.0f, 2.0f }  // look_from
     };

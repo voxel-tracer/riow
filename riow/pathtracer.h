@@ -1,6 +1,8 @@
 #pragma once
 #include "rtweekend.h"
+#include "tracer.h"
 #include "color.h"
+
 
 enum class render_state {
     SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH
@@ -12,7 +14,9 @@ struct scene_desc {
     shared_ptr<hittable_list> lights;
 };
 
-class pathtracer {
+typedef std::function<void(const ray&, const ray&, render_state)> render_callback;
+
+class pathtracer: public tracer {
 private:
     const shared_ptr<camera> cam;
     shared_ptr<yocto::color_image> image;
@@ -21,7 +25,7 @@ private:
     const unsigned max_depth;
 
     color ray_color(const ray& r, shared_ptr<rnd> rng, int depth,
-        std::function<void(const ray&, const ray&, render_state)> callback) {
+        render_callback callback) {
         // If we've exceeded the ray bounce limit, no more lights gathered
         if (depth == 0) {
             callback(r, r, render_state::MAXDEPTH);
@@ -68,33 +72,42 @@ private:
             * ray_color(scattered, rng, depth - 1, callback) / pdf_val;
     }
 
+    color RenderPixel(unsigned i, unsigned j, render_callback callback) {
+        color pixel_color{ 0, 0, 0 };
+
+        auto local_seed = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
+        auto local_rng = make_shared<xor_rnd>(local_seed);
+
+        for (auto s = 0; s != samples_per_pixel; ++s) {
+            auto u = (i + local_rng->random_double()) / (image->width - 1);
+            auto v = (j + local_rng->random_double()) / (image->height - 1);
+            ray r = cam->get_ray(u, v, local_rng);
+            pixel_color += ray_color(r, local_rng, max_depth, callback);
+        }
+
+        return pixel_color;
+    }
+
 public:
     pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md) : 
         cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md) {}
 
-    void Render() {
-        // to render pixel (x, y)
-        //  i = x;
-        //  j = (image_height - 1) - y; => y = (image_height - 1) - j;
+    virtual void Render() override {
 
         for (auto j = image->height - 1; j >= 0; --j) {
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
-                color pixel_color{ 0, 0, 0 };
-
-                auto local_seed = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
-                auto local_rng = make_shared<xor_rnd>(local_seed);
-
-                for (auto s = 0; s != samples_per_pixel; ++s) {
-                    auto u = (i + local_rng->random_double()) / (image->width - 1);
-                    auto v = (j + local_rng->random_double()) / (image->height - 1);
-                    ray r = cam->get_ray(u, v, local_rng);
-                    pixel_color += ray_color(r, local_rng, max_depth,
-                        [](const ray& r, const ray& s, render_state state) {});
-                }
+                color pixel_color = RenderPixel(i, j, 
+                    [](const ray& r, const ray& s, render_state state) {});
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
         }
+    }
+
+    virtual void DebugPixel(unsigned x, unsigned y, std::vector<vec3> &paths) override {
+        // to render pixel (x, y)
+        auto i = x;
+        auto j = (image->height - 1) - y;
     }
 };

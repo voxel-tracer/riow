@@ -60,7 +60,7 @@ using point3 = vec3; // 3D point
 using color = vec3; // RGB color
 
 // vec3 Utility functions
-
+#ifdef VEC3_IMPL
 inline std::ostream& operator<<(std::ostream& out, const vec3& v) {
     return out << v[0] << ' ' << v[1] << ' ' << v[2];
 }
@@ -117,4 +117,18 @@ vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
     vec3 r_out_parallel = sqlen >= 1.0f ? vec3(0, 0, 0) : -sqrt(1.0f - sqlen) * n;
     return r_out_perp + r_out_parallel;
 }
+#else
+inline std::ostream& operator<<(std::ostream& out, const vec3& v);
+inline vec3 operator+(const vec3& u, const vec3& v);
+inline vec3 operator-(const vec3& u, const vec3& v);
+inline vec3 operator*(const vec3& u, const vec3& v);
+inline vec3 operator*(double t, const vec3& v);
+inline vec3 operator*(const vec3& v, double t);
+inline vec3 operator/(const vec3& v, double t);
+inline double dot(const vec3& u, const vec3& v);
+inline vec3 cross(const vec3& u, const vec3& v);
+inline vec3 unit_vector(vec3 v);
+vec3 reflect(const vec3& v, const vec3& n);
+vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat);
+#endif // VEC3_IMPL
 

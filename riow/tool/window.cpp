@@ -33,8 +33,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 namespace tool {
-    window::window(const yocto::color_image &image, glm::vec3 look_at, glm::vec3 look_from) :
-        cam(camera{ look_at, look_from }) {
+    window::window(const yocto::color_image &image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
+            pt(tr), cam(camera{ look_at, look_from }) {
         // glfw: initialize and configure
         // ------------------------------
         glfwInit();
