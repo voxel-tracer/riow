@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cmath>
-#include <iostream>
+#include <ostream>
 
 class vec3 {
 public:
@@ -60,7 +60,6 @@ using point3 = vec3; // 3D point
 using color = vec3; // RGB color
 
 // vec3 Utility functions
-#ifdef VEC3_IMPL
 inline std::ostream& operator<<(std::ostream& out, const vec3& v) {
     return out << v[0] << ' ' << v[1] << ' ' << v[2];
 }
@@ -106,29 +105,14 @@ inline vec3 unit_vector(vec3 v) {
     return v / v.length();
 }
 
-vec3 reflect(const vec3& v, const vec3& n) {
+inline vec3 reflect(const vec3& v, const vec3& n) {
     return v - 2 * dot(v, n) * n;
 }
 
-vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
+inline vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
     auto cos_theta = fmin(dot(-uv, n), 1.0);
     vec3 r_out_perp = etai_over_etat * (uv + cos_theta * n);
     double sqlen = r_out_perp.length_squared();
     vec3 r_out_parallel = sqlen >= 1.0f ? vec3(0, 0, 0) : -sqrt(1.0f - sqlen) * n;
     return r_out_perp + r_out_parallel;
 }
-#else
-inline std::ostream& operator<<(std::ostream& out, const vec3& v);
-inline vec3 operator+(const vec3& u, const vec3& v);
-inline vec3 operator-(const vec3& u, const vec3& v);
-inline vec3 operator*(const vec3& u, const vec3& v);
-inline vec3 operator*(double t, const vec3& v);
-inline vec3 operator*(const vec3& v, double t);
-inline vec3 operator/(const vec3& v, double t);
-inline double dot(const vec3& u, const vec3& v);
-inline vec3 cross(const vec3& u, const vec3& v);
-inline vec3 unit_vector(vec3 v);
-vec3 reflect(const vec3& v, const vec3& n);
-vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat);
-#endif // VEC3_IMPL
-

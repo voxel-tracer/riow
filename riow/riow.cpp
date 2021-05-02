@@ -1,9 +1,6 @@
 // riow.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#define VEC3_IMPL
-#include "vec3.h"
-
 #include "rtweekend.h"
 
 #include "color.h"

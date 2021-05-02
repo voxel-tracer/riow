@@ -112,6 +112,8 @@ namespace tool {
 
                 if (scene)
                     scene->render(*shader);
+                if (ls)
+                    ls->render(*shader);
             }
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -144,11 +146,19 @@ namespace tool {
         }
 
         cam.handle_mouse_move(xPos, yPos);
+        mouse_last_x = xPos;
+        mouse_last_y = yPos;
     }
 
     void window::handle_mouse_buttons(int button, int action, int mods) {
         if (is2D) {
-            // clicking anywhere will switch to the 3D view
+            // generate render paths
+            std::vector<yocto::vec3f> paths;
+            pt->DebugPixel(mouse_last_x, mouse_last_y, paths);
+
+            if (ls) ls.reset();
+            ls = make_unique<lines>(paths);
+
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 switchTo3D();
             }

@@ -16,6 +16,10 @@ struct scene_desc {
 
 typedef std::function<void(const ray&, const ray&, render_state)> render_callback;
 
+inline yocto::vec3f toYocto(const vec3& v) {
+    return { (float)v[0], (float)v[1], (float)v[2] };
+}
+
 class pathtracer: public tracer {
 private:
     const shared_ptr<camera> cam;
@@ -105,9 +109,29 @@ public:
         }
     }
 
-    virtual void DebugPixel(unsigned x, unsigned y, std::vector<vec3> &paths) override {
+    virtual void DebugPixel(unsigned x, unsigned y, std::vector<yocto::vec3f> &paths) override {
+        std::cerr << "DebugPixel(" << x << ", " << y << ")\n";
+
         // to render pixel (x, y)
         auto i = x;
         auto j = (image->height - 1) - y;
+
+        RenderPixel(i, j,
+            [&paths](const ray& r, const ray& s, render_state state) {
+                switch (state) {
+                case render_state::DIFFUSE:
+                case render_state::SPECULAR:
+                    paths.push_back(toYocto(r.origin()));
+                    paths.push_back(toYocto(s.origin()));
+                    break;
+                case render_state::NOHIT:
+                    paths.push_back(toYocto(r.origin()));
+                    paths.push_back(toYocto(r.at(10))); // infinite ray
+                    break;
+                default:
+                    // do nothing
+                    break;
+                }
+            });
     }
 };

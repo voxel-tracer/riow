@@ -81,6 +81,7 @@ namespace tool {
         void render(Shader& shader) {
             for (const auto& instance : instances) {
                 shader.setMat4("model", instance.model);
+                shader.setVec3("color", glm::vec3(1.0, 0.5, 0.5));
                 shapes[instance.shape]->render();
             }
         }

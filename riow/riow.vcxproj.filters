@@ -16,6 +16,12 @@
     <Filter Include="Header Files\tool">
       <UniqueIdentifier>{cbc494ad-6ad6-4f4b-b00c-fcdeb9c91121}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\shaders">
+      <UniqueIdentifier>{5526daee-841d-4649-9a06-0b32528446ba}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource Files\shaders\scene">
+      <UniqueIdentifier>{ee616852-d81c-411f-9741-99a615e2fa28}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="riow.cpp">
@@ -107,5 +113,16 @@
     <ClInclude Include="tracer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="tool\lines.h">
+      <Filter>Header Files\tool</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\scene\fragment.glsl">
+      <Filter>Resource Files\shaders\scene</Filter>
+    </None>
+    <None Include="shaders\scene\vertex.glsl">
+      <Filter>Resource Files\shaders\scene</Filter>
+    </None>
   </ItemGroup>
 </Project>

@@ -12,6 +12,7 @@
 #include "scene.h"
 #include "screen_texture.h"
 #include "zoom_pixel.h"
+#include "lines.h"
 #include "../tracer.h"
 
 namespace tool {
@@ -19,6 +20,8 @@ namespace tool {
     private:
         bool is2D;
         bool esc_pressed = false;
+        float mouse_last_x = 0.0f;
+        float mouse_last_y = 0.0f;
 
         camera cam;
         GLFWwindow* glwindow;
@@ -29,6 +32,7 @@ namespace tool {
 
         unique_ptr<screen_texture> screen;
         unique_ptr<zoom_pixel> pixel;
+        unique_ptr<lines> ls = NULL;
 
         shared_ptr<tracer> pt;
 

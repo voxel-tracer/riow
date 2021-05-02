@@ -171,6 +171,7 @@
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="texture.h" />
     <ClInclude Include="tool\camera.h" />
+    <ClInclude Include="tool\lines.h" />
     <ClInclude Include="tool\scene.h" />
     <ClInclude Include="tool\screen_texture.h" />
     <ClInclude Include="tool\shader.h" />
@@ -178,6 +179,10 @@
     <ClInclude Include="tool\zoom_pixel.h" />
     <ClInclude Include="tracer.h" />
     <ClInclude Include="vec3.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\scene\fragment.glsl" />
+    <None Include="shaders\scene\vertex.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
