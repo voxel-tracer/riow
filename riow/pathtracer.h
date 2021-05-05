@@ -3,6 +3,8 @@
 #include "tracer.h"
 #include "color.h"
 
+#include <yocto/yocto_parallel.h>
+
 
 enum class render_state {
     SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH
@@ -14,7 +16,7 @@ struct scene_desc {
     shared_ptr<hittable_list> lights;
 };
 
-typedef std::function<void(const ray&, const ray&, render_state)> render_callback;
+typedef std::function<void(const ray&, const vec3&, render_state)> render_callback;
 
 inline yocto::vec3f toYocto(const vec3& v) {
     return { (float)v[0], (float)v[1], (float)v[2] };
@@ -32,25 +34,25 @@ private:
         render_callback callback) {
         // If we've exceeded the ray bounce limit, no more lights gathered
         if (depth == 0) {
-            callback(r, r, render_state::MAXDEPTH);
+            callback({}, {}, render_state::MAXDEPTH);
             return color{ 0, 0, 0 };
         }
 
         hit_record rec;
         if (!scene.world->hit(r, 0.001, infinity, rec, rng)) {
-            callback(r, r, render_state::NOHIT);
+            callback({}, {}, render_state::NOHIT);
             return scene.background;
         }
 
         scatter_record srec;
         color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
         if (!rec.mat_ptr->scatter(r, rec, srec, rng)) {
-            callback(r, r, render_state::ABSORBED);
+            callback(r, rec.p, render_state::ABSORBED);
             return emitted;
         }
 
         if (srec.is_specular) {
-            callback(r, srec.specular_ray, render_state::SPECULAR);
+            callback(r, rec.p, render_state::SPECULAR);
             return srec.attenuation * ray_color(srec.specular_ray, rng, depth - 1, callback);
         }
 
@@ -70,7 +72,7 @@ private:
             pdf_val = mixed_pdf.value(scattered.direction());
         }
 
-        callback(r, scattered, render_state::DIFFUSE);
+        callback(r, rec.p, render_state::DIFFUSE);
         return emitted +
             srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
             * ray_color(scattered, rng, depth - 1, callback) / pdf_val;
@@ -102,11 +104,18 @@ public:
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
                 color pixel_color = RenderPixel(i, j, 
-                    [](const ray& r, const ray& s, render_state state) {});
+                    [](const ray& r, const vec3& e, render_state state) {});
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
         }
+
+        //yocto::parallel_for(image->width, image->height, [this](unsigned i, unsigned j) {
+        //    color pixel_color = RenderPixel(i, j, 
+        //        [](const ray& r, const ray& s, render_state state) {});
+
+        //    yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
+        //});
     }
 
     virtual void DebugPixel(unsigned x, unsigned y, std::vector<yocto::vec3f> &paths) override {
@@ -117,16 +126,17 @@ public:
         auto j = (image->height - 1) - y;
 
         RenderPixel(i, j,
-            [&paths](const ray& r, const ray& s, render_state state) {
+            [&paths](const ray& r, const vec3& e, render_state state) {
                 switch (state) {
                 case render_state::DIFFUSE:
                 case render_state::SPECULAR:
+                case render_state::ABSORBED:
                     paths.push_back(toYocto(r.origin()));
-                    paths.push_back(toYocto(s.origin()));
+                    paths.push_back(toYocto(e));
                     break;
                 case render_state::NOHIT:
                     paths.push_back(toYocto(r.origin()));
-                    paths.push_back(toYocto(r.at(10))); // infinite ray
+                    paths.push_back(toYocto(r.at(1))); // infinite ray
                     break;
                 default:
                     // do nothing

@@ -160,6 +160,15 @@ shared_ptr<tool::scene> init_scene() {
             instance.shape = 0;
             instance.material = 0;
             instance.frame =
+                yocto::translation_frame({ 0.0f, 0.0f, -1.75f }) *
+                yocto::scaling_frame({ 0.1f, 0.1f, 0.1f });
+            scene.instances.push_back(instance);
+        }
+        {
+            auto instance = yocto::scene_instance{};
+            instance.shape = 0;
+            instance.material = 0;
+            instance.frame =
                 yocto::translation_frame({ 0.0f, 0.0f, -1.0f }) *
                 yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
             scene.instances.push_back(instance);
@@ -211,7 +220,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (2) {
+    switch (3) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
