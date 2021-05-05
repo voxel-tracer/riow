@@ -11,6 +11,7 @@ namespace tool {
         const float rotate_speed = 0.5f;
         const float zoom_speed = 0.5f;
 
+        float aspect_ratio;
         glm::vec3 look_at;
         glm::vec3 look_from;
         float dist_to_look_at;
@@ -24,8 +25,8 @@ namespace tool {
         bool  mouse_left_pressed = false;
 
     public:
-        camera(glm::vec3 look_at = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 look_from = glm::vec3(0.0f, 0.0f, -3.0f)) :
-            look_at(look_at) {
+        camera(float ar, glm::vec3 look_at = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 look_from = glm::vec3(0.0f, 0.0f, -3.0f)) :
+            aspect_ratio(ar), look_at(look_at) {
             dist_to_look_at = glm::length(look_from - look_at);
             compute_rotations(look_from);
 
@@ -34,6 +35,10 @@ namespace tool {
 
         glm::mat4 get_view_matrix() const {
             return glm::lookAt(glm::vec3(look_from), look_at, glm::vec3(0.0f, 1.0f, 0.0f));
+        }
+
+        glm::mat4 get_projection_matrix() const {
+            return glm::perspective(glm::radians(20.0f), aspect_ratio, 0.1f, 100.0f);
         }
 
         void compute_rotations(glm::vec3 look_from) {

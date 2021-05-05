@@ -34,7 +34,7 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 
 namespace tool {
     window::window(const yocto::color_image &image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
-            pt(tr), cam(camera{ look_at, look_from }) {
+            pt(tr), cam(camera{ static_cast<float>(image.width) / image.height, look_at, look_from }) {
         // glfw: initialize and configure
         // ------------------------------
         glfwInit();
@@ -67,9 +67,7 @@ namespace tool {
         // create global transformations
         // ----------------------
         shader->use();
-        float aspect_ratio = static_cast<float>(image.width) / image.height;
-        glm::mat4 projection = glm::perspective(glm::radians(20.0f), aspect_ratio, 0.1f, 100.0f);
-        shader->setMat4("projection", projection);
+        shader->setMat4("projection", cam.get_projection_matrix());
 
         // start with 3D mode enabled
         switchTo2D(true);
@@ -110,10 +108,8 @@ namespace tool {
                 glm::mat4 view = cam.get_view_matrix();
                 shader->setMat4("view", view);
 
-                if (scene)
-                    scene->render(*shader);
-                if (ls)
-                    ls->render(*shader);
+                if (scene) scene->render(*shader);
+                if (ls) ls->render(cam);
             }
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)

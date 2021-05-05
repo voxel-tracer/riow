@@ -22,6 +22,9 @@
     <Filter Include="Resource Files\shaders\scene">
       <UniqueIdentifier>{ee616852-d81c-411f-9741-99a615e2fa28}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Resource Files\shaders\lines">
+      <UniqueIdentifier>{11ebb092-9834-43ab-90a5-c6c9db72512b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="riow.cpp">
@@ -126,6 +129,12 @@
     </None>
     <None Include="shaders\scene\vertex.glsl">
       <Filter>Resource Files\shaders\scene</Filter>
+    </None>
+    <None Include="shaders\lines\fragment.glsl">
+      <Filter>Resource Files\shaders\lines</Filter>
+    </None>
+    <None Include="shaders\lines\vertex.glsl">
+      <Filter>Resource Files\shaders\lines</Filter>
     </None>
   </ItemGroup>
 </Project>

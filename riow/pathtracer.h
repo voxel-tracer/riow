@@ -64,7 +64,7 @@ private:
 
         hit_record rec;
         if (!scene.world->hit(r, 0.001, infinity, rec, rng)) {
-            callback({ render_state::NOHIT });
+            callback({ r, {}, scene.background, render_state::NOHIT });
             return scene.background;
         }
 

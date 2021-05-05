@@ -14,7 +14,6 @@ namespace tool {
     public:
         shape(const yocto::scene_shape& s) {
             num_triangles = s.triangles.size();
-            std::cerr << "num_triangles = " << num_triangles << std::endl;
 
             glGenVertexArrays(1, &VAO);
             glGenBuffers(1, &VBO);
@@ -36,7 +35,6 @@ namespace tool {
         }
 
         ~shape() {
-            cerr << "shape destroyed\n";
             glDeleteVertexArrays(1, &VAO);
             glDeleteBuffers(1, &VBO);
             glDeleteBuffers(1, &EBO);
