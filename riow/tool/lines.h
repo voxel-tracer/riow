@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "shader.h"
-#include <yocto/yocto_math.h>
+#include "tracer_data.h"
 
 namespace tool {
     class lines {
@@ -12,8 +12,16 @@ namespace tool {
         unsigned VBO, VAO;
 
     public:
-        lines(const std::vector<yocto::vec3f> vs) {
+        lines(const std::vector<path_segment> segments) {
+            vector<vec3f> vs{};
+            for (auto& s : segments) {
+                vs.push_back(s.s);
+                vs.push_back(s.e);
+            }
+
             numverts = vs.size();
+
+            // convert segments to a regular vec3f array
 
             glGenVertexArrays(1, &VAO);
             glGenBuffers(1, &VBO);
@@ -33,12 +41,9 @@ namespace tool {
             // You can unbind the VAO afterwards so other VAO calls won't accidentally modify this VAO, but this rarely happens. Modifying other
             // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
             glBindVertexArray(0);
-
-            std::cerr << "init lines VAO = " << VAO << std::endl;
         }
 
         ~lines() {
-            std::cerr << "delete lines VAO = " << VAO << std::endl;
             glDeleteVertexArrays(1, &VAO);
             glDeleteBuffers(1, &VBO);
         }

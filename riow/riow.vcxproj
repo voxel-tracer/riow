@@ -175,6 +175,7 @@
     <ClInclude Include="tool\scene.h" />
     <ClInclude Include="tool\screen_texture.h" />
     <ClInclude Include="tool\shader.h" />
+    <ClInclude Include="tool\tracer_data.h" />
     <ClInclude Include="tool\window.h" />
     <ClInclude Include="tool\zoom_pixel.h" />
     <ClInclude Include="tracer.h" />

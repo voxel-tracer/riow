@@ -153,11 +153,11 @@ namespace tool {
     void window::handle_mouse_buttons(int button, int action, int mods) {
         if (is2D) {
             // generate render paths
-            std::vector<yocto::vec3f> paths;
-            pt->DebugPixel(mouse_last_x, mouse_last_y, paths);
+            std::vector<path_segment> segments;
+            pt->DebugPixel(mouse_last_x, mouse_last_y, segments);
 
             if (ls) ls.reset();
-            ls = make_unique<lines>(paths);
+            ls = make_unique<lines>(segments);
 
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 switchTo3D();

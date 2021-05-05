@@ -16,11 +16,35 @@ struct scene_desc {
     shared_ptr<hittable_list> lights;
 };
 
-typedef std::function<void(const ray&, const vec3&, render_state)> render_callback;
-
 inline yocto::vec3f toYocto(const vec3& v) {
     return { (float)v[0], (float)v[1], (float)v[2] };
 }
+
+struct callback_data {
+    ray r;
+    vec3 p;
+    color albedo;
+    render_state state;
+
+    callback_data(render_state s) {
+        state = s;
+    }
+
+    callback_data(const ray& _r, const vec3& _p, const color& a, render_state s) {
+        r = _r;
+        p = _p;
+        albedo = a;
+        state = s;
+    }
+
+    tool::path_segment toSegment() const {
+        if (state == render_state::NOHIT)
+            return { toYocto(r.origin()), toYocto(r.at(1)), toYocto(albedo) };
+        return { toYocto(r.origin()), toYocto(p), toYocto(albedo) };
+    }
+};
+
+typedef std::function<void(const callback_data&)> render_callback;
 
 class pathtracer: public tracer {
 private:
@@ -34,26 +58,27 @@ private:
         render_callback callback) {
         // If we've exceeded the ray bounce limit, no more lights gathered
         if (depth == 0) {
-            callback({}, {}, render_state::MAXDEPTH);
+            callback({ render_state::MAXDEPTH });
             return color{ 0, 0, 0 };
         }
 
         hit_record rec;
         if (!scene.world->hit(r, 0.001, infinity, rec, rng)) {
-            callback({}, {}, render_state::NOHIT);
+            callback({ render_state::NOHIT });
             return scene.background;
         }
 
         scatter_record srec;
         color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
         if (!rec.mat_ptr->scatter(r, rec, srec, rng)) {
-            callback(r, rec.p, render_state::ABSORBED);
+            callback({ r, rec.p, emitted, render_state::ABSORBED });
             return emitted;
         }
 
         if (srec.is_specular) {
-            callback(r, rec.p, render_state::SPECULAR);
-            return srec.attenuation * ray_color(srec.specular_ray, rng, depth - 1, callback);
+            color c = srec.attenuation * ray_color(srec.specular_ray, rng, depth - 1, callback);
+            callback({ r, rec.p, c, render_state::SPECULAR });
+            return c;
         }
 
         ray scattered;
@@ -72,10 +97,11 @@ private:
             pdf_val = mixed_pdf.value(scattered.direction());
         }
 
-        callback(r, rec.p, render_state::DIFFUSE);
-        return emitted +
+        color c = emitted +
             srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
             * ray_color(scattered, rng, depth - 1, callback) / pdf_val;
+        callback({ r, rec.p, c, render_state::DIFFUSE });
+        return c;
     }
 
     color RenderPixel(unsigned i, unsigned j, render_callback callback) {
@@ -104,7 +130,7 @@ public:
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
                 color pixel_color = RenderPixel(i, j, 
-                    [](const ray& r, const vec3& e, render_state state) {});
+                    [](const callback_data& data) {});
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
@@ -118,7 +144,7 @@ public:
         //});
     }
 
-    virtual void DebugPixel(unsigned x, unsigned y, std::vector<yocto::vec3f> &paths) override {
+    virtual void DebugPixel(unsigned x, unsigned y, std::vector<tool::path_segment> &segments) override {
         std::cerr << "DebugPixel(" << x << ", " << y << ")\n";
 
         // to render pixel (x, y)
@@ -126,18 +152,13 @@ public:
         auto j = (image->height - 1) - y;
 
         RenderPixel(i, j,
-            [&paths](const ray& r, const vec3& e, render_state state) {
-                switch (state) {
+            [&segments](const callback_data &data) {
+                switch (data.state) {
                 case render_state::DIFFUSE:
                 case render_state::SPECULAR:
                 case render_state::ABSORBED:
-                    paths.push_back(toYocto(r.origin()));
-                    paths.push_back(toYocto(e));
-                    break;
                 case render_state::NOHIT:
-                    paths.push_back(toYocto(r.origin()));
-                    paths.push_back(toYocto(r.at(1))); // infinite ray
-                    break;
+                    segments.push_back(data.toSegment());
                 default:
                     // do nothing
                     break;
