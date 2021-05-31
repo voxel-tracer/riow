@@ -59,9 +59,12 @@ void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> 
     auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
 
     objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
     objects->add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, material_center));
+
     objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
-    objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+
+    objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), -0.49, material_right));
     objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
@@ -189,7 +192,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1;
+    const int samples_per_pixel = 128;
     const int max_depth = 50;
 
     // World
@@ -203,7 +206,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (3) {
+    switch (2) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
