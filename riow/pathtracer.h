@@ -26,16 +26,11 @@ struct callback_data {
     color albedo;
     render_state state;
 
-    callback_data(render_state s) {
-        state = s;
-    }
+    callback_data(render_state s, const color& a = { 0.0f, 0.0f, 0.0f }): 
+        state(s), albedo(a) {}
 
-    callback_data(const ray& _r, const vec3& _p, const color& a, render_state s) {
-        r = _r;
-        p = _p;
-        albedo = a;
-        state = s;
-    }
+    callback_data(const ray& _r, const vec3& _p, const color& a, render_state s) :
+        r(_r), p(_p), albedo(a), state(s) {}
 
     tool::path_segment toSegment() const {
         if (state == render_state::NOHIT)
@@ -54,7 +49,7 @@ private:
     const unsigned samples_per_pixel;
     const unsigned max_depth;
 
-    color ray_color(const ray& r, shared_ptr<rnd> rng, int depth,
+    color ray_color(const ray& r, shared_ptr<rnd> rng, int depth, color attenuation,
         render_callback callback) {
         // If we've exceeded the ray bounce limit, no more lights gathered
         if (depth == 0) {
@@ -64,19 +59,20 @@ private:
 
         hit_record rec;
         if (!scene.world->hit(r, 0.001, infinity, rec, rng)) {
-            callback({ r, {}, scene.background, render_state::NOHIT });
+            callback({ r, {}, scene.background * attenuation, render_state::NOHIT });
             return scene.background;
         }
 
         scatter_record srec;
         color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
         if (!rec.mat_ptr->scatter(r, rec, srec, rng)) {
-            callback({ r, rec.p, emitted, render_state::ABSORBED });
+            callback({ r, rec.p, emitted * attenuation, render_state::ABSORBED });
             return emitted;
         }
 
         if (srec.is_specular) {
-            color c = srec.attenuation * ray_color(srec.specular_ray, rng, depth - 1, callback);
+            color c = srec.attenuation * 
+                ray_color(srec.specular_ray, rng, depth - 1, attenuation * srec.attenuation, callback);
             callback({ r, rec.p, c, render_state::SPECULAR });
             return c;
         }
@@ -99,7 +95,7 @@ private:
 
         color c = emitted +
             srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-            * ray_color(scattered, rng, depth - 1, callback) / pdf_val;
+            * ray_color(scattered, rng, depth - 1, srec.attenuation*attenuation, callback) / pdf_val;
         callback({ r, rec.p, c, render_state::DIFFUSE });
         return c;
     }
@@ -114,7 +110,7 @@ private:
             auto u = (i + local_rng->random_double()) / (image->width - 1);
             auto v = (j + local_rng->random_double()) / (image->height - 1);
             ray r = cam->get_ray(u, v, local_rng);
-            pixel_color += ray_color(r, local_rng, max_depth, callback);
+            pixel_color += ray_color(r, local_rng, max_depth, { 1, 1, 1 }, callback);
         }
 
         return pixel_color;

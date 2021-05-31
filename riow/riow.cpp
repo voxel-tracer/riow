@@ -192,7 +192,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 128;
+    const int samples_per_pixel = 1;
     const int max_depth = 50;
 
     // World
@@ -206,7 +206,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (2) {
+    switch (3) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -274,7 +274,13 @@ int main()
     };
     shared_ptr<tracer> pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth);
 
-    pt->Render();
+    if (false)
+    {
+        vector<tool::path_segment> segments;
+        pt->DebugPixel(262, 211, segments);
+    } else {
+        pt->Render();
+    }
 
     auto error = string{};
     if (!save_image("out.png", *image, error)) {
