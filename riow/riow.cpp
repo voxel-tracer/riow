@@ -84,7 +84,8 @@ void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hit
     sampled->add(light_sphere);
 
     objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
-    objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), -0.45, material_left));
+
+    objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), -0.45, material_right));
     objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
@@ -143,53 +144,35 @@ void cornell_box(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sa
     objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
 }
 
-shared_ptr<tool::scene> init_scene() {
+shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
     auto scene = yocto::scene_model{};
     {
-        auto shape = yocto::scene_shape{};
-        // make shape with 32 steps in resolution and scale of 1
-        auto quads = yocto::vector<yocto::vec4i>{};
-        yocto::make_sphere(quads, shape.positions, shape.normals, shape.texcoords, 8, 1, 1);
-        // yocto::make_monkey(quads, positions, 1);
-        shape.triangles = quads_to_triangles(quads);
-        scene.shapes.push_back(shape);
+        {
+            auto shape = yocto::scene_shape{};
+            // make shape with 8 steps in resolution and scale of 1
+            auto quads = yocto::vector<yocto::vec4i>{};
+            yocto::make_sphere(quads, shape.positions, shape.normals, shape.texcoords, 8, 1, 1);
+            shape.triangles = quads_to_triangles(quads);
+            scene.shapes.push_back(shape);
+        }
         scene.materials.push_back({}); // create a black material directly
 
-        {
-            auto instance = yocto::scene_instance{};
-            instance.shape = 0;
-            instance.material = 0;
-            instance.frame =
-                yocto::translation_frame({ 0.0f, 0.0f, -1.75f }) *
-                yocto::scaling_frame({ 0.1f, 0.1f, 0.1f });
-            scene.instances.push_back(instance);
-        }
-        {
-            auto instance = yocto::scene_instance{};
-            instance.shape = 0;
-            instance.material = 0;
-            instance.frame =
-                yocto::translation_frame({ 0.0f, 0.0f, -1.0f }) *
-                yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
-            scene.instances.push_back(instance);
-        }
-        {
-            auto instance = yocto::scene_instance{};
-            instance.shape = 0;
-            instance.material = 0;
-            instance.frame =
-                yocto::translation_frame({ -1.0f, 0.0f, -1.0f }) *
-                yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
-            scene.instances.push_back(instance);
-        }
-        {
-            auto instance = yocto::scene_instance{};
-            instance.shape = 0;
-            instance.material = 0;
-            instance.frame =
-                yocto::translation_frame({ 1.0f, 0.0f, -1.0f }) *
-                yocto::scaling_frame({ 0.5f, 0.5f, 0.5f });
-            scene.instances.push_back(instance);
+        for (auto o : world->objects) {
+            // only supports spheres for now and constant_medium that uses sphere as a boundary
+            if (auto cm = dynamic_pointer_cast<constant_medium>(o)) {
+                o = cm->boundary;
+            }
+            if (auto s = dynamic_pointer_cast<sphere>(o)) {
+                if (s->radius > 99.0) continue; // ignore floor sphere
+
+                auto instance = yocto::scene_instance{};
+                instance.shape = 0;
+                instance.material = 0;
+                instance.frame =
+                    yocto::translation_frame({ (float)s->center[0], (float)s->center[1], (float)s->center[2] }) *
+                    yocto::scaling_frame({ (float)s->radius, (float)s->radius, (float)s->radius });
+                scene.instances.push_back(instance);
+            }
         }
     }
 
@@ -206,7 +189,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 10;
+    const int samples_per_pixel = 1;
     const int max_depth = 50;
 
     // World
@@ -303,7 +286,7 @@ int main()
         { 0.0f, 0.0f, -1.0f }, // look_at
         { 3.0f, 2.0f, 2.0f }  // look_from
     };
-    w.set_scene(init_scene());
+    w.set_scene(init_scene(world));
 
     w.render();
 }
