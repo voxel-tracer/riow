@@ -6,42 +6,10 @@
 #include <yocto/yocto_parallel.h>
 
 
-enum class render_state {
-    SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH
-};
-
 struct scene_desc {
     color background;
     shared_ptr<hittable> world;
     shared_ptr<hittable_list> lights;
-};
-
-inline yocto::vec3f toYocto(const vec3& v) {
-    return { (float)v[0], (float)v[1], (float)v[2] };
-}
-
-struct callback_data {
-    ray r;
-    vec3 p;
-    color albedo;
-    render_state state;
-
-    callback_data(render_state s, const color& a = { 0.0f, 0.0f, 0.0f }): 
-        state(s), albedo(a) {}
-
-    callback_data(const ray& _r, const vec3& _p, const color& a, render_state s) :
-        r(_r), p(_p), albedo(a), state(s) {}
-
-    tool::path_segment toSegment() const {
-        if (state == render_state::NOHIT)
-            return { toYocto(r.origin()), toYocto(r.at(1)), toYocto(albedo) };
-        return { toYocto(r.origin()), toYocto(p), toYocto(albedo) };
-    }
-};
-
-class render_callback {
-public:
-    virtual void operator ()(const callback_data&) {}
 };
 
 class build_segments_callback : public render_callback {
@@ -148,23 +116,22 @@ public:
         cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md) {}
 
     virtual void Render() override {
-
         render_callback no_op;
+        Render(no_op);
+    }
+
+    virtual void Render(render_callback& callback) override {
+
         for (auto j = image->height - 1; j >= 0; --j) {
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
-                color pixel_color = RenderPixel(i, j, no_op);
+                color pixel_color = RenderPixel(i, j, callback);
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
         }
 
-        //yocto::parallel_for(image->width, image->height, [this](unsigned i, unsigned j) {
-        //    color pixel_color = RenderPixel(i, j, 
-        //        [](const ray& r, const ray& s, render_state state) {});
-
-        //    yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
-        //});
+        std::cerr << std::endl;
     }
 
     virtual void DebugPixel(unsigned x, unsigned y, std::vector<tool::path_segment> &segments) override {

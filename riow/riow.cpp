@@ -15,6 +15,7 @@
 
 #include <iostream>
 #include <functional>
+#include <time.h>
 
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
@@ -279,7 +280,12 @@ int main()
         vector<tool::path_segment> segments;
         pt->DebugPixel(262, 211, segments);
     } else {
-        pt->Render();
+        clock_t start = clock();
+        num_inters_callback cb;
+        pt->Render(cb);
+        clock_t stop = clock();
+        double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+        cerr << "Rendering took " << timer_seconds << " seconds. \nTotal intersections = " << cb.count << endl;
     }
 
     auto error = string{};
