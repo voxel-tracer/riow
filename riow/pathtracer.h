@@ -71,55 +71,60 @@ private:
     const unsigned samples_per_pixel;
     const unsigned max_depth;
 
-    color ray_color(const ray& r, shared_ptr<rnd> rng, int depth, color attenuation,
-        render_callback &callback) {
-        // If we've exceeded the ray bounce limit, no more lights gathered
-        if (depth == 0) {
-            callback({ render_state::MAXDEPTH });
-            return color{ 0, 0, 0 };
+    color ray_color(const ray& r, shared_ptr<rnd> rng, render_callback &callback) {
+        color throughput = { 1, 1, 1 };
+        color emitted = { 0, 0, 0 };
+        ray curRay = r;
+
+        for (auto depth = 0; depth < max_depth; ++depth) {
+            hit_record rec;
+            if (!scene.world->hit(curRay, 0.001, infinity, rec, rng)) {
+                throughput = throughput * scene.background;
+                callback({ curRay, {}, throughput, render_state::NOHIT });
+                return throughput;
+            }
+
+            scatter_record srec;
+            color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p) * throughput;
+            emitted += e;
+            if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
+                callback({ curRay, rec.p, e, render_state::ABSORBED });
+                return emitted;
+            }
+
+            if (srec.is_specular) {
+                throughput = throughput * srec.attenuation;
+                callback({ curRay, rec.p, throughput, render_state::SPECULAR });
+                curRay = srec.specular_ray;
+                continue;
+            }
+
+            ray scattered;
+            double pdf_val;
+            if (scene.lights->objects.empty()) {
+                // sample material directly
+                scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
+                pdf_val = srec.pdf_ptr->value(scattered.direction());
+            }
+            else {
+                // multiple importance sampling of light and material pdf
+                auto light_ptr = make_shared<hittable_pdf>(scene.lights, rec.p);
+                mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
+
+                scattered = ray(rec.p, mixed_pdf.generate(rng));
+                pdf_val = mixed_pdf.value(scattered.direction());
+            }
+
+            throughput = throughput * srec.attenuation *
+                rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
+            callback({ curRay, rec.p, throughput, render_state::DIFFUSE });
+            curRay = scattered;
         }
 
-        hit_record rec;
-        if (!scene.world->hit(r, 0.001, infinity, rec, rng)) {
-            callback({ r, {}, scene.background * attenuation, render_state::NOHIT });
-            return scene.background;
-        }
+        // if we reach this point, we've exceeded the ray bounce limit, no more lights gathered
+        callback({ render_state::MAXDEPTH });
+        return color{ 0, 0, 0 };
 
-        scatter_record srec;
-        color emitted = rec.mat_ptr->emitted(r, rec, rec.u, rec.v, rec.p);
-        if (!rec.mat_ptr->scatter(r, rec, srec, rng)) {
-            callback({ r, rec.p, emitted * attenuation, render_state::ABSORBED });
-            return emitted;
-        }
-
-        if (srec.is_specular) {
-            color c = srec.attenuation * 
-                ray_color(srec.specular_ray, rng, depth - 1, attenuation * srec.attenuation, callback);
-            callback({ r, rec.p, c, render_state::SPECULAR });
-            return c;
-        }
-
-        ray scattered;
-        double pdf_val;
-        if (scene.lights->objects.empty()) {
-            // sample material directly
-            scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
-            pdf_val = srec.pdf_ptr->value(scattered.direction());
-        }
-        else {
-            // multiple importance sampling of light and material pdf
-            auto light_ptr = make_shared<hittable_pdf>(scene.lights, rec.p);
-            mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
-
-            scattered = ray(rec.p, mixed_pdf.generate(rng));
-            pdf_val = mixed_pdf.value(scattered.direction());
-        }
-
-        color c = emitted +
-            srec.attenuation * rec.mat_ptr->scattering_pdf(r, rec, scattered)
-            * ray_color(scattered, rng, depth - 1, srec.attenuation*attenuation, callback) / pdf_val;
-        callback({ r, rec.p, c, render_state::DIFFUSE });
-        return c;
     }
 
     color RenderPixel(unsigned i, unsigned j, render_callback &callback) {
@@ -132,7 +137,7 @@ private:
             auto u = (i + local_rng->random_double()) / (image->width - 1);
             auto v = (j + local_rng->random_double()) / (image->height - 1);
             ray r = cam->get_ray(u, v, local_rng);
-            pixel_color += ray_color(r, local_rng, max_depth, { 1, 1, 1 }, callback);
+            pixel_color += ray_color(r, local_rng, callback);
         }
 
         return pixel_color;
