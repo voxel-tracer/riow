@@ -39,7 +39,29 @@ struct callback_data {
     }
 };
 
-typedef std::function<void(const callback_data&)> render_callback;
+class render_callback {
+public:
+    virtual void operator ()(const callback_data&) {}
+};
+
+class build_segments_callback : public render_callback {
+public:
+
+    virtual void operator ()(const callback_data& data) {
+        switch (data.state) {
+        case render_state::DIFFUSE:
+        case render_state::SPECULAR:
+        case render_state::ABSORBED:
+        case render_state::NOHIT:
+            segments.push_back(data.toSegment());
+        default:
+            // do nothing
+            break;
+        }
+    }
+
+    vector<tool::path_segment> segments;
+};
 
 class pathtracer: public tracer {
 private:
@@ -50,7 +72,7 @@ private:
     const unsigned max_depth;
 
     color ray_color(const ray& r, shared_ptr<rnd> rng, int depth, color attenuation,
-        render_callback callback) {
+        render_callback &callback) {
         // If we've exceeded the ray bounce limit, no more lights gathered
         if (depth == 0) {
             callback({ render_state::MAXDEPTH });
@@ -100,7 +122,7 @@ private:
         return c;
     }
 
-    color RenderPixel(unsigned i, unsigned j, render_callback callback) {
+    color RenderPixel(unsigned i, unsigned j, render_callback &callback) {
         color pixel_color{ 0, 0, 0 };
 
         auto local_seed = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
@@ -122,11 +144,11 @@ public:
 
     virtual void Render() override {
 
+        render_callback no_op;
         for (auto j = image->height - 1; j >= 0; --j) {
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
-                color pixel_color = RenderPixel(i, j, 
-                    [](const callback_data& data) {});
+                color pixel_color = RenderPixel(i, j, no_op);
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
@@ -147,18 +169,8 @@ public:
         auto i = x;
         auto j = (image->height - 1) - y;
 
-        RenderPixel(i, j,
-            [&segments](const callback_data &data) {
-                switch (data.state) {
-                case render_state::DIFFUSE:
-                case render_state::SPECULAR:
-                case render_state::ABSORBED:
-                case render_state::NOHIT:
-                    segments.push_back(data.toSegment());
-                default:
-                    // do nothing
-                    break;
-                }
-            });
+        build_segments_callback bsc;
+        RenderPixel(i, j, bsc);
+        segments = bsc.segments;
     }
 };
