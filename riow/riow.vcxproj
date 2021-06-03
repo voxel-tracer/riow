@@ -160,6 +160,7 @@
     <ClInclude Include="hittable.h" />
     <ClInclude Include="hittable_list.h" />
     <ClInclude Include="material.h" />
+    <ClInclude Include="medium.h" />
     <ClInclude Include="onb.h" />
     <ClInclude Include="pathtracer.h" />
     <ClInclude Include="pdf.h" />

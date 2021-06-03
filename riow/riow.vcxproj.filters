@@ -122,6 +122,9 @@
     <ClInclude Include="tool\tracer_data.h">
       <Filter>Header Files\tool</Filter>
     </ClInclude>
+    <ClInclude Include="medium.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\scene\fragment.glsl">

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rtweekend.h"
+#include "medium.h";
 #include "texture.h"
 #include "onb.h"
 #include "pdf.h"
@@ -9,9 +10,11 @@ struct hit_record;
 
 struct scatter_record {
     ray specular_ray;
-    bool is_specular;
+    bool is_specular = false;
+    bool is_refracted = false;
     color attenuation;
     shared_ptr<pdf> pdf_ptr;
+    shared_ptr<Medium> medium_ptr;
 };
 
 class material {
@@ -68,12 +71,13 @@ public:
 
 class dielectric: public material {
 public:
-    dielectric(double index_of_refraction) : ir(index_of_refraction) {}
+    dielectric(double index_of_refraction, shared_ptr<Medium> m = {}) : ir(index_of_refraction), medium(m) {}
 
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         srec.is_specular = true;
         srec.pdf_ptr = nullptr;
         srec.attenuation = color{ 1.0, 1.0, 1.0 };
+        srec.medium_ptr = medium;
         double refraction_ratio = rec.front_face ? (1.0 / ir) : ir;
 
         double cos_theta = fmin(dot(-in.direction(), rec.normal), 1.0);
@@ -82,16 +86,20 @@ public:
         bool cannot_refract = refraction_ratio * sin_theta > 1.0;
         vec3 direction;
 
-        if (cannot_refract || reflectance(cos_theta, ir) > rng->random_double())
+        if (cannot_refract || reflectance(cos_theta, ir) > rng->random_double()) {
             direction = reflect(in.direction(), rec.normal);
-        else
+            srec.is_refracted = false;
+        } else {
             direction = refract(in.direction(), rec.normal, refraction_ratio);
+            srec.is_refracted = true;
+        }
 
         srec.specular_ray = ray{ rec.p, direction };
         return true;
     }
 
     double ir; // Index of Refraction
+    std::shared_ptr<Medium> medium;
 
 private:
     static double reflectance(double cosine, double ref_idx) {

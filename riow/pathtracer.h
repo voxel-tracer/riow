@@ -43,6 +43,7 @@ private:
     color ray_color(const ray& r, shared_ptr<rnd> rng, render_callback &callback) {
         color throughput = { 1, 1, 1 };
         color emitted = { 0, 0, 0 };
+        shared_ptr<Medium> medium = {};
         ray curRay = r;
 
         for (auto depth = 0; depth < max_depth; ++depth) {
@@ -53,12 +54,26 @@ private:
                 return emitted;
             }
 
+            // take current medium into account
+            if (medium) {
+                throughput *= medium->transmittance(rec.t);
+            }
+
             scatter_record srec;
             color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p) * throughput;
             emitted += e;
             if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
                 callback({ curRay, rec.p, e, render_state::ABSORBED });
                 return emitted;
+            }
+
+            // check if we entered or exited a medium
+            if (srec.is_refracted) {
+                // assumes mediums cannot overlap
+                if (medium)
+                    medium = nullptr;
+                else
+                    medium = srec.medium_ptr;
             }
 
             if (srec.is_specular) {

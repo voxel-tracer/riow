@@ -74,14 +74,17 @@ void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sam
     auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
 
-    auto glass = make_shared<dielectric>(1.5);
-    objects->add(make_shared<sphere>(point3(0.0, 0.0, -1.0), -0.49, glass));
-    objects->add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, glass));
+    auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
+    auto glass = make_shared<dielectric>(1.1, medium);
+    //objects->add(make_shared<sphere>(point3(0.0, 0.5, -1.0), -0.49, glass));
+    auto ball = make_shared<sphere>(point3(0.0, 0.1, -1.0), 0.5, glass);
+    objects->add(ball);
+    sampled->add(ball);
 
-    auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-    auto light_sphere = make_shared<sphere>(point3(0.0, 1.0, -1.0), 0.1, material_light);
-    objects->add(light_sphere);
-    sampled->add(light_sphere);
+    //auto material_light = make_shared<diffuse_light>(color(20.0));
+    //auto light_sphere = make_shared<sphere>(point3(0.0, 1.5, 1.0), 0.1, material_light);
+    //objects->add(light_sphere);
+    //sampled->add(light_sphere);
 }
 
 void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
@@ -288,7 +291,7 @@ int main()
         world,
         lights
     };
-    shared_ptr<tracer> pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
+    shared_ptr<tracer> pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, max_depth);
 
     if (false)
     {
