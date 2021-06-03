@@ -4,6 +4,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <iostream>
+
 namespace tool {
 
     class camera {
@@ -81,6 +83,9 @@ namespace tool {
             if (action == GLFW_RELEASE) {
                 if (button == GLFW_MOUSE_BUTTON_1) {// mouse left button released
                     mouse_left_pressed = false;
+
+                    // print camera position
+                    std::cerr << "cam.look_from = (" << look_from.x << ", " << look_from.y << ", " << look_from.z << ")\n";
                 }
             }
         }

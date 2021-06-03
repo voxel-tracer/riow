@@ -69,6 +69,25 @@ void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> 
     objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
+void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+    // ground
+    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(color(0.9));
+    objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
+    auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
+    auto glass = make_shared<dielectric>(1.05, medium);
+
+    for (auto i = 0; i < 3; i++) {
+        objects->add(make_shared<sphere>(point3(0.0, -0.1 + i * 1.0, -1.0), 0.5, glass));
+    }
+
+    //auto material_light = make_shared<diffuse_light>(color(20.0));
+    //auto light_sphere = make_shared<sphere>(point3(0.0, 1.5, 1.0), 0.1, material_light);
+    //objects->add(light_sphere);
+    //sampled->add(light_sphere);
+}
+
 void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -225,7 +244,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (4) {
+    switch (6) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -270,8 +289,17 @@ int main()
             background = color(0.1, 0.1, 0.1);
             break;
 
-        default:
         case 6:
+            multiple_glass_balls(world, lights);
+            lookfrom = point3(2.83545, 9.57518, -0.474481);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.6, 0.6, 0.7);
+            break;
+
+        default:
+        case 7:
             cornell_box(world, lights);
             lookfrom = point3(278, 278, -800);
             lookat = point3(278, 278, 0);
@@ -316,8 +344,8 @@ int main()
     tool::window w{
         *image,
         pt,
-        { 0.0f, 0.0f, -1.0f }, // look_at
-        { 3.0f, 2.0f, 2.0f }  // look_from
+        glm::vec3(lookat[0], lookat[1], lookat[2]), // look_at
+        glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2])  // look_from
     };
     w.set_scene(init_scene(world));
 
