@@ -69,6 +69,21 @@ void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> 
     objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
+void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
+    auto glass = make_shared<dielectric>(1.5);
+    objects->add(make_shared<sphere>(point3(0.0, 0.0, -1.0), -0.49, glass));
+    objects->add(make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, glass));
+
+    auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
+    auto light_sphere = make_shared<sphere>(point3(0.0, 1.0, -1.0), 0.1, material_light);
+    objects->add(light_sphere);
+    sampled->add(light_sphere);
+}
+
 void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -80,16 +95,16 @@ void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hit
 
     auto white = make_shared<lambertian>(color(0.73, 0.73, 0.73));
     shared_ptr<hittable> sphere1 = make_shared<sphere>(point3(0.0, 0.0, -1.0), 0.5, white);
-    objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.73, .73, .73)));
+    objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.99, .93, .93)));
 
     auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-    auto light_sphere = make_shared<sphere>(point3(0.0, 0.0, -1.75), 0.1, material_light);
+    auto light_sphere = make_shared<sphere>(point3(0.0, 2.0, 0.0), 0.1, material_light);
     objects->add(light_sphere);
     sampled->add(light_sphere);
 
     objects->add(make_shared<sphere>(point3(-1.0, 0.0, -1.0), 0.5, material_left));
 
-    objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), -0.45, material_right));
+    objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), -0.49, material_right));
     objects->add(make_shared<sphere>(point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
@@ -193,8 +208,8 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1;
-    const int max_depth = 50;
+    const int samples_per_pixel = 128;
+    const int max_depth = 500;
 
     // World
 
@@ -207,7 +222,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (3) {
+    switch (4) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -235,12 +250,12 @@ int main()
             break;
 
         case 4:
-            //world = four_spheres();
+            glass_ball(world, lights);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
-            vfov = 30.0;
+            vfov = 20.0;
             aperture = 0.1;
-            background = color(0.1, 0.1, 0.1);
+            background = color(0.6, 0.6, 0.7);
             break;
 
         case 5:
@@ -273,7 +288,7 @@ int main()
         world,
         lights
     };
-    shared_ptr<tracer> pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth);
+    shared_ptr<tracer> pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
 
     if (false)
     {

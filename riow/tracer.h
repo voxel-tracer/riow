@@ -10,7 +10,7 @@ inline yocto::vec3f toYocto(const vec3& v) {
 }
 
 enum class render_state {
-    SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH
+    SPECULAR, DIFFUSE, NOHIT, ABSORBED, MAXDEPTH, RROULETTE
 };
 
 struct callback_data {
@@ -40,7 +40,10 @@ public:
 class num_inters_callback : public render_callback {
 public:
     virtual void operator()(const callback_data& data) override {
-        if (data.state != render_state::MAXDEPTH) ++count;
+        if (data.state != render_state::MAXDEPTH &&
+            data.state != render_state::RROULETTE) {
+            ++count;
+        }
     }
 
     unsigned long count = 0;

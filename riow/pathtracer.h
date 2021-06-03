@@ -38,6 +38,7 @@ private:
     const scene_desc scene;
     const unsigned samples_per_pixel;
     const unsigned max_depth;
+    const unsigned rroulette_depth;
 
     color ray_color(const ray& r, shared_ptr<rnd> rng, render_callback &callback) {
         color throughput = { 1, 1, 1 };
@@ -47,9 +48,9 @@ private:
         for (auto depth = 0; depth < max_depth; ++depth) {
             hit_record rec;
             if (!scene.world->hit(curRay, 0.001, infinity, rec, rng)) {
-                throughput = throughput * scene.background;
-                callback({ curRay, {}, throughput, render_state::NOHIT });
-                return throughput;
+                emitted += throughput * scene.background;
+                callback({ curRay, {}, emitted, render_state::NOHIT });
+                return emitted;
             }
 
             scatter_record srec;
@@ -61,7 +62,7 @@ private:
             }
 
             if (srec.is_specular) {
-                throughput = throughput * srec.attenuation;
+                throughput *= srec.attenuation;
                 callback({ curRay, rec.p, throughput, render_state::SPECULAR });
                 curRay = srec.specular_ray;
                 continue;
@@ -73,8 +74,7 @@ private:
                 // sample material directly
                 scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
                 pdf_val = srec.pdf_ptr->value(scattered.direction());
-            }
-            else {
+            } else {
                 // multiple importance sampling of light and material pdf
                 auto light_ptr = make_shared<hittable_pdf>(scene.lights, rec.p);
                 mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
@@ -83,15 +83,25 @@ private:
                 pdf_val = mixed_pdf.value(scattered.direction());
             }
 
-            throughput = throughput * srec.attenuation *
+            throughput *= srec.attenuation *
                 rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
             callback({ curRay, rec.p, throughput, render_state::DIFFUSE });
             curRay = scattered;
+
+            // Russian roulette
+            if (depth > rroulette_depth) {
+                double m = max(throughput);
+                if (rng->random_double() > m) {
+                    callback({ render_state::RROULETTE });
+                    return emitted;
+                }
+                throughput *= 1 / m;
+            }
         }
 
         // if we reach this point, we've exceeded the ray bounce limit, no more lights gathered
         callback({ render_state::MAXDEPTH });
-        return color{ 0, 0, 0 };
+        return emitted;
 
     }
 
@@ -112,8 +122,8 @@ private:
     }
 
 public:
-    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md) : 
-        cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md) {}
+    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md, unsigned rrd) : 
+        cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md), rroulette_depth(rrd) {}
 
     virtual void Render() override {
         render_callback no_op;

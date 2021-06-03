@@ -30,6 +30,13 @@ public:
         return *this;
     }
 
+    vec3& operator*=(const vec3& v) {
+        e[0] *= v[0];
+        e[1] *= v[1];
+        e[2] *= v[2];
+        return *this;
+    }
+
     vec3& operator/=(const double t) {
         e[0] /= t;
         e[1] /= t;
@@ -86,6 +93,10 @@ inline vec3 operator*(const vec3& v, double t) {
 
 inline vec3 operator/(const vec3& v, double t) {
     return (1 / t) * v;
+}
+
+inline double max(const vec3& v) {
+    return std::max(v.x(), std::max(v.y(), v.z()));
 }
 
 inline double dot(const vec3& u, const vec3& v) {
