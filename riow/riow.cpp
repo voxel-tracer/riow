@@ -71,15 +71,61 @@ void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> 
 
 void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
     // ground
-    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(color(0.9));
+    auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
 
-    auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
-    auto glass = make_shared<dielectric>(1.05, medium);
+    {
+        // red ball
+        auto medium = make_shared<IsotropicScatteringMedium>(color(.8, .3, .3), .25, 2.0);
+        auto glass = make_shared<dielectric>(1.05, medium);
 
-    for (auto i = 0; i < 3; i++) {
-        objects->add(make_shared<sphere>(point3(0.0, -0.1 + i * 1.0, -1.0), 0.5, glass));
+        objects->add(make_shared<sphere>(point3(-1.0, 0.1, -1.0), 0.5, glass));
+    }
+
+    {
+        // green ball
+        auto medium = make_shared<IsotropicScatteringMedium>(color(.3, .8, .3), .25, 2.0);
+        auto glass = make_shared<dielectric>(1.05, medium);
+
+        objects->add(make_shared<sphere>(point3(0.0, 0.1, -1.0), 0.5, glass));
+    }
+
+    {
+        // blue ball
+        auto medium = make_shared<IsotropicScatteringMedium>(color(.3, .3, .8), .25, 2.0);
+        auto glass = make_shared<dielectric>(1.05, medium);
+
+        objects->add(make_shared<sphere>(point3(1.0, 0.1, -1.0), 0.5, glass));
+    }
+
+    //auto material_light = make_shared<diffuse_light>(color(20.0));
+    //auto light_sphere = make_shared<sphere>(point3(0.0, 1.5, 1.0), 0.1, material_light);
+    //objects->add(light_sphere);
+    //sampled->add(light_sphere);
+}
+
+void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+    // ground
+    auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
+    color clr = { 0xFEC7BC };
+    {
+        // red ball without subsurface scattering
+        auto medium = make_shared<NoScatterMedium>(clr, .25);
+        auto glass = make_shared<dielectric>(1.33, medium);
+
+        objects->add(make_shared<sphere>(point3(-0.5, 0.1, -1.0), 0.5, glass));
+    }
+
+    {
+        // red ball with subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, .25, .25);
+        auto glass = make_shared<dielectric>(1.33, medium);
+
+        objects->add(make_shared<sphere>(point3(0.5, 0.1, -1.0), 0.5, glass));
     }
 
     //auto material_light = make_shared<diffuse_light>(color(20.0));
@@ -93,17 +139,18 @@ void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sam
     auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
 
-    auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
+    //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
+    auto medium = make_shared<IsotropicScatteringMedium>(color(.8, .3, .3), .25, 1.0);
     auto glass = make_shared<dielectric>(1.1, medium);
     //objects->add(make_shared<sphere>(point3(0.0, 0.5, -1.0), -0.49, glass));
     auto ball = make_shared<sphere>(point3(0.0, 0.1, -1.0), 0.5, glass);
     objects->add(ball);
     sampled->add(ball);
 
-    //auto material_light = make_shared<diffuse_light>(color(20.0));
-    //auto light_sphere = make_shared<sphere>(point3(0.0, 1.5, 1.0), 0.1, material_light);
-    //objects->add(light_sphere);
-    //sampled->add(light_sphere);
+    auto material_light = make_shared<diffuse_light>(color(20.0));
+    auto light_sphere = make_shared<sphere>(point3(0.0, 1.5, 1.0), 0.1, material_light);
+    objects->add(light_sphere);
+    sampled->add(light_sphere);
 }
 
 void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
@@ -244,7 +291,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (6) {
+    switch (2) {
         case 1:
             //world = earth();
             background = color(0.70, 0.80, 1.00);
@@ -254,12 +301,12 @@ int main()
             break;
 
         case 2:
-            three_spheres(world, lights);
-            lookfrom = point3(3, 2, 2);
+            two_glass_balls(world, lights);
+            lookfrom = point3(0.09, 3.44, 4.15);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
             aperture = 0.1;
-            background = color(0.70, 0.80, 1.00);
+            background = color(1.0, 1.0, 1.0);
             break;
 
         case 3:
@@ -291,7 +338,9 @@ int main()
 
         case 6:
             multiple_glass_balls(world, lights);
-            lookfrom = point3(2.83545, 9.57518, -0.474481);
+            //lookfrom = point3(2.83545, 9.57518, -0.474481);
+            //lookat = point3(0, 0, -1);
+            lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
             aperture = 0.1;

@@ -54,54 +54,70 @@ private:
                 return emitted;
             }
 
+            bool hitSurface = true;
+
             // take current medium into account
             if (medium) {
-                throughput *= medium->transmittance(rec.t);
+                // check if there is an internal scattering
+                float distance = medium->sampleDistance(rng, rec.t);
+                throughput *= medium->transmission(distance);
+
+                if (distance < rec.t) {
+                    // ray scattered inside the medium
+                    hitSurface = false;
+                    curRay = ray(
+                        curRay.at(distance),
+                        medium->sampleScatterDirection(rng, curRay.direction())
+                    );
+                }
             }
 
-            scatter_record srec;
-            color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p) * throughput;
-            emitted += e;
-            if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
-                callback({ curRay, rec.p, e, render_state::ABSORBED });
-                return emitted;
+            if (hitSurface) {
+                scatter_record srec;
+                color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p) * throughput;
+                emitted += e;
+                if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
+                    callback({ curRay, rec.p, e, render_state::ABSORBED });
+                    return emitted;
+                }
+
+                // check if we entered or exited a medium
+                if (srec.is_refracted) {
+                    // assumes mediums cannot overlap
+                    if (medium)
+                        medium = nullptr;
+                    else
+                        medium = srec.medium_ptr;
+                }
+
+                if (srec.is_specular) {
+                    throughput *= srec.attenuation;
+                    callback({ curRay, rec.p, throughput, render_state::SPECULAR });
+                    curRay = srec.specular_ray;
+                    continue;
+                }
+
+                ray scattered;
+                double pdf_val;
+                if (scene.lights->objects.empty()) {
+                    // sample material directly
+                    scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
+                    pdf_val = srec.pdf_ptr->value(scattered.direction());
+                }
+                else {
+                    // multiple importance sampling of light and material pdf
+                    auto light_ptr = make_shared<hittable_pdf>(scene.lights, rec.p);
+                    mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
+
+                    scattered = ray(rec.p, mixed_pdf.generate(rng));
+                    pdf_val = mixed_pdf.value(scattered.direction());
+                }
+
+                throughput *= srec.attenuation *
+                    rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
+                callback({ curRay, rec.p, throughput, render_state::DIFFUSE });
+                curRay = scattered;
             }
-
-            // check if we entered or exited a medium
-            if (srec.is_refracted) {
-                // assumes mediums cannot overlap
-                if (medium)
-                    medium = nullptr;
-                else
-                    medium = srec.medium_ptr;
-            }
-
-            if (srec.is_specular) {
-                throughput *= srec.attenuation;
-                callback({ curRay, rec.p, throughput, render_state::SPECULAR });
-                curRay = srec.specular_ray;
-                continue;
-            }
-
-            ray scattered;
-            double pdf_val;
-            if (scene.lights->objects.empty()) {
-                // sample material directly
-                scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
-                pdf_val = srec.pdf_ptr->value(scattered.direction());
-            } else {
-                // multiple importance sampling of light and material pdf
-                auto light_ptr = make_shared<hittable_pdf>(scene.lights, rec.p);
-                mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
-
-                scattered = ray(rec.p, mixed_pdf.generate(rng));
-                pdf_val = mixed_pdf.value(scattered.direction());
-            }
-
-            throughput *= srec.attenuation *
-                rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
-            callback({ curRay, rec.p, throughput, render_state::DIFFUSE });
-            curRay = scattered;
 
             // Russian roulette
             if (depth > rroulette_depth) {
