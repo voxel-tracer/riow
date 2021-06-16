@@ -12,9 +12,9 @@ struct scatter_record {
     ray specular_ray;
     bool is_specular = false;
     bool is_refracted = false;
-    color attenuation;
-    shared_ptr<pdf> pdf_ptr;
-    shared_ptr<Medium> medium_ptr;
+    color attenuation = { 1.0, 1.0, 1.0 };
+    shared_ptr<pdf> pdf_ptr = nullptr;
+    shared_ptr<Medium> medium_ptr = nullptr;
 };
 
 class material {
@@ -143,4 +143,36 @@ public:
 
 public:
     shared_ptr<texture> albedo;
+};
+
+class diffuse_subsurface_scattering : public lambertian {
+public:
+    diffuse_subsurface_scattering(double w, const color& c, shared_ptr<Medium> m) :
+        lambertian(c), weight(w), medium(m) {}
+
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
+        if (rec.front_face) {
+            // ray coming from outside the model
+            if (rng->random_double() < weight) {
+                // ray is entering the medium
+                srec.is_specular = true;
+                srec.is_refracted = true;
+                srec.medium_ptr = medium;
+                srec.specular_ray = ray(rec.p, in.direction());
+                return true;
+            } else {
+                // lambertian scattering
+                return lambertian::scatter(in, rec, srec, rng);
+            }
+        } else {
+            // ray is exiting the medium
+            srec.is_specular = true;
+            srec.is_refracted = true;
+            srec.specular_ray = ray(rec.p, in.direction());
+            return true;
+        }
+    }
+
+    double weight; // how much of the scattered rays are lambertian
+    shared_ptr<Medium> medium;
 };

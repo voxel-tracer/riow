@@ -111,19 +111,55 @@ void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list
     auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
 
-    color clr = { 0xFEC7BC };
+    //auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
+    //auto glass = make_shared<dielectric>(1.35, ketchup);
+    color clr = { .98, .0061, .0033 };
+    double ad = 0.005;
+    double sd = 0.5;
     {
         // red ball without subsurface scattering
-        auto medium = make_shared<NoScatterMedium>(clr, .25);
-        auto glass = make_shared<dielectric>(1.33, medium);
+        auto medium = make_shared<NoScatterMedium>(clr, ad);
+        auto glass = make_shared<dielectric>(1.35, medium);
 
         objects->add(make_shared<sphere>(point3(-0.5, 0.1, -1.0), 0.5, glass));
     }
 
     {
         // red ball with subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, .25, .25);
-        auto glass = make_shared<dielectric>(1.33, medium);
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
+        auto glass = make_shared<dielectric>(1.35, medium);
+
+        objects->add(make_shared<sphere>(point3(0.5, 0.1, -1.0), 0.5, glass));
+    }
+
+    //auto material_light = make_shared<diffuse_light>(color(20.0));
+    //auto light_sphere = make_shared<sphere>(point3(0.0, 1.5, 1.0), 0.1, material_light);
+    //objects->add(light_sphere);
+    //sampled->add(light_sphere);
+}
+
+void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+    // ground
+    auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
+    color clr = { .98, .0061, .0033 };
+    double ad = 0.005;
+    double sd = 0.5;
+    {
+        // white diffuse scattering with red subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
+        color clr = { 1.0, 1.0, 1.0 };
+        auto diffuse = make_shared<diffuse_subsurface_scattering>(0.5, clr, medium);
+
+        objects->add(make_shared<sphere>(point3(-0.5, 0.1, -1.0), 0.5, diffuse));
+    }
+
+    {
+        // red ball with subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
+        auto glass = make_shared<dielectric>(1.35, medium);
 
         objects->add(make_shared<sphere>(point3(0.5, 0.1, -1.0), 0.5, glass));
     }
@@ -140,8 +176,8 @@ void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sam
     objects->add(make_shared<sphere>(point3(0.0, -100.5, -1.0), 100.0, material_ground));
 
     //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
-    auto medium = make_shared<IsotropicScatteringMedium>(color(.8, .3, .3), .25, 1.0);
-    auto glass = make_shared<dielectric>(1.1, medium);
+    auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
+    auto glass = make_shared<dielectric>(1.35, ketchup);
     //objects->add(make_shared<sphere>(point3(0.0, 0.5, -1.0), -0.49, glass));
     auto ball = make_shared<sphere>(point3(0.0, 0.1, -1.0), 0.5, glass);
     objects->add(ball);
@@ -277,7 +313,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 128;
+    const int samples_per_pixel = 16;
     const int max_depth = 500;
 
     // World
@@ -293,11 +329,12 @@ int main()
 
     switch (2) {
         case 1:
-            //world = earth();
-            background = color(0.70, 0.80, 1.00);
-            lookfrom = point3(13, 2, 3);
-            lookat = point3(0, 0, 0);
+            two_mediums(world, lights);
+            lookfrom = point3(0.09, 3.44, 4.15);
+            lookat = point3(0, 0, -1);
             vfov = 20.0;
+            aperture = 0.1;
+            background = color(1.0, 1.0, 1.0);
             break;
 
         case 2:
