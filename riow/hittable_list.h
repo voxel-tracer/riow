@@ -10,8 +10,8 @@ using std::make_shared;
 
 class hittable_list : public hittable {
 public:
-    hittable_list() {}
-    hittable_list(shared_ptr<hittable> object) { add(object); }
+    hittable_list(): hittable("list") {}
+    hittable_list(shared_ptr<hittable> object): hittable("list") { add(object); }
 
     void clear() { objects.clear(); }
     void add(shared_ptr<hittable> object) { objects.push_back(object); }
@@ -33,6 +33,7 @@ bool hittable_list::hit(const ray& r, double t_min, double t_max, hit_record& re
             hit_anything = true;
             closest_so_far = temp_rec.t;
             rec = temp_rec;
+            rec.obj_ptr = object;
         }
     }
 

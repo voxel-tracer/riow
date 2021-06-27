@@ -11,9 +11,9 @@ public:
         double vfov, // vertical field-of-view in degrees
         double aspect_ratio,
         double aperture,
-        double focus_dist) {
+        double focus_dist): lookfrom(lookfrom), lookat(lookat) {
         auto theta = degrees_to_radians(vfov);
-        auto h = tan(theta / 2);
+        auto h = std::tan(theta / 2);
         auto viewport_height = 2.0 * h;
         auto viewport_width = aspect_ratio * viewport_height;
 
@@ -37,6 +37,9 @@ public:
             origin + offset,
             lower_left_corner + s * horizontal + t * vertical - origin - offset };
     }
+
+    const vec3 lookat;
+    const vec3 lookfrom;
 
 private:
     point3 origin;

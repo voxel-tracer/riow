@@ -77,12 +77,6 @@
     <ClInclude Include="constant_medium.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="aarect.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="box.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="onb.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -123,6 +117,12 @@
       <Filter>Header Files\tool</Filter>
     </ClInclude>
     <ClInclude Include="medium.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="tracer_callback.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hit_record.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

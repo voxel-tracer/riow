@@ -12,25 +12,6 @@ struct scene_desc {
     shared_ptr<hittable_list> lights;
 };
 
-class build_segments_callback : public render_callback {
-public:
-
-    virtual void operator ()(const callback_data& data) {
-        switch (data.state) {
-        case render_state::DIFFUSE:
-        case render_state::SPECULAR:
-        case render_state::ABSORBED:
-        case render_state::NOHIT:
-            segments.push_back(data.toSegment());
-        default:
-            // do nothing
-            break;
-        }
-    }
-
-    vector<tool::path_segment> segments;
-};
-
 class pathtracer: public tracer {
 private:
     const shared_ptr<camera> cam;
@@ -40,60 +21,94 @@ private:
     const unsigned max_depth;
     const unsigned rroulette_depth;
 
-    color ray_color(const ray& r, shared_ptr<rnd> rng, render_callback &callback) {
+    color ray_color(const ray& r, shared_ptr<rnd> rng, callback::callback_ptr cb) {
+        const double epsilon = 0.001;
+
         color throughput = { 1, 1, 1 };
         color emitted = { 0, 0, 0 };
         shared_ptr<Medium> medium = {};
+        shared_ptr<hittable> medium_obj = {};
         ray curRay = r;
 
         for (auto depth = 0; depth < max_depth; ++depth) {
+            if (cb && cb->terminate()) break;
+            if (cb) (*cb)(callback::Bounce::make(depth, throughput));
+
             hit_record rec;
-            if (!scene.world->hit(curRay, 0.001, infinity, rec, rng)) {
+            if (!scene.world->hit(curRay, epsilon, infinity, rec, rng)) {
                 emitted += throughput * scene.background;
-                callback({ curRay, {}, emitted, render_state::NOHIT });
+
+                if (cb) (*cb)(callback::NoHitTerminal::make());
+
                 return emitted;
             }
+
+            if (cb) (*cb)(callback::CandidateHit::make(rec));
 
             bool hitSurface = true;
 
             // take current medium into account
             if (medium) {
                 // check if there is an internal scattering
-                float distance = medium->sampleDistance(rng, rec.t);
+                double distance = medium->sampleDistance(rng, rec.t);
                 throughput *= medium->transmission(distance);
 
-                if (distance < rec.t) {
-                    // ray scattered inside the medium
-                    hitSurface = false;
-                    curRay = ray(
+                // TODO introduce an event that describes medium transmission
+
+                if ((distance + epsilon) < rec.t) {
+                    ray scattered = ray(
                         curRay.at(distance),
                         medium->sampleScatterDirection(rng, curRay.direction())
                     );
+
+                    // if the scattered ray is too close to the surface it is possible
+                    // it will miss it, in that case ignore the medium scattering
+                    hit_record tmp;
+                    if (medium_obj->hit(scattered, epsilon, infinity, tmp, rng)) {
+                        // ray scattered inside the medium
+                        hitSurface = false;
+                        curRay = scattered;
+
+                        if (cb) {
+                            (*cb)(callback::MediumHit::make(scattered.origin(), distance, rec.t));
+                            (*cb)(callback::MediumScatter::make(scattered.direction()));
+                        }
+                    }
                 }
             }
 
             if (hitSurface) {
+                // only account for hit, when we actually hit the surface
+                if (cb) (*cb)(callback::SurfaceHit::make(rec));
+
                 scatter_record srec;
                 color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p) * throughput;
                 emitted += e;
                 if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
-                    callback({ curRay, rec.p, e, render_state::ABSORBED });
+                    if (cb) (*cb)(callback::AbsorbedTerminal::make());
+
                     return emitted;
                 }
 
                 // check if we entered or exited a medium
                 if (srec.is_refracted) {
                     // assumes mediums cannot overlap
-                    if (medium)
+                    if (medium) {
                         medium = nullptr;
-                    else
+                        medium_obj = nullptr;
+                    }
+                    else if (srec.medium_ptr) {
                         medium = srec.medium_ptr;
+                        medium_obj = rec.obj_ptr;
+                    }
                 }
 
                 if (srec.is_specular) {
                     throughput *= srec.attenuation;
-                    callback({ curRay, rec.p, throughput, render_state::SPECULAR });
                     curRay = srec.specular_ray;
+
+                    if (cb) (*cb)(callback::SpecularScatter::make(curRay.direction(), srec.is_refracted));
+
                     continue;
                 }
 
@@ -115,7 +130,9 @@ private:
 
                 throughput *= srec.attenuation *
                     rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
-                callback({ curRay, rec.p, throughput, render_state::DIFFUSE });
+
+                if (cb) (*cb)(callback::DiffuseScatter::make(scattered.direction()));
+
                 curRay = scattered;
             }
 
@@ -123,7 +140,8 @@ private:
             if (depth > rroulette_depth) {
                 double m = max(throughput);
                 if (rng->random_double() > m) {
-                    callback({ render_state::RROULETTE });
+                    if (cb) (*cb)(callback::RouletteTerminal::make());
+
                     return emitted;
                 }
                 throughput *= 1 / m;
@@ -131,12 +149,12 @@ private:
         }
 
         // if we reach this point, we've exceeded the ray bounce limit, no more lights gathered
-        callback({ render_state::MAXDEPTH });
+        if (cb) (*cb)(callback::MaxDepthTerminal::make());
         return emitted;
 
     }
 
-    color RenderPixel(unsigned i, unsigned j, render_callback &callback) {
+    color RenderPixel(unsigned i, unsigned j, callback::callback_ptr cb) {
         color pixel_color{ 0, 0, 0 };
 
         auto local_seed = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
@@ -146,7 +164,11 @@ private:
             auto u = (i + local_rng->random_double()) / (image->width - 1);
             auto v = (j + local_rng->random_double()) / (image->height - 1);
             ray r = cam->get_ray(u, v, local_rng);
-            pixel_color += ray_color(r, local_rng, callback);
+
+            if (cb) (*cb)(callback::New::make(r, i, (image->height - 1) - j, s));
+
+            pixel_color += ray_color(r, local_rng, cb);
+            if (cb && cb->terminate()) break;
         }
 
         return pixel_color;
@@ -156,17 +178,12 @@ public:
     pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md, unsigned rrd) : 
         cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md), rroulette_depth(rrd) {}
 
-    virtual void Render() override {
-        render_callback no_op;
-        Render(no_op);
-    }
-
-    virtual void Render(render_callback& callback) override {
-
+    virtual void Render(callback::callback_ptr cb) override {
         for (auto j = image->height - 1; j >= 0; --j) {
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
-                color pixel_color = RenderPixel(i, j, callback);
+                color pixel_color = RenderPixel(i, j, cb);
+                if (cb && cb->terminate()) return;
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
@@ -175,15 +192,12 @@ public:
         std::cerr << std::endl;
     }
 
-    virtual void DebugPixel(unsigned x, unsigned y, std::vector<tool::path_segment> &segments) override {
+    virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) override {
         std::cerr << "DebugPixel(" << x << ", " << y << ")\n";
 
         // to render pixel (x, y)
         auto i = x;
         auto j = (image->height - 1) - y;
-
-        build_segments_callback bsc;
-        RenderPixel(i, j, bsc);
-        segments = bsc.segments;
+        RenderPixel(i, j, cb);
     }
 };

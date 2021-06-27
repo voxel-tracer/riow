@@ -15,7 +15,7 @@ namespace tool {
 
     public:
         lines(const std::vector<path_segment> segments) {
-            vector<vec3f> vs{};
+            vector<yocto::vec3f> vs{};
             for (auto& s : segments) {
                 vs.push_back(s.s); // vertex position
                 vs.push_back(s.c); // vertex color

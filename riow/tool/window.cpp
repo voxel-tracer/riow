@@ -149,11 +149,11 @@ namespace tool {
     void window::handle_mouse_buttons(int button, int action, int mods) {
         if (is2D) {
             // generate render paths
-            std::vector<path_segment> segments;
-            pt->DebugPixel(mouse_last_x, mouse_last_y, segments);
+            shared_ptr<callback::build_segments_cb> cb = std::make_shared<callback::build_segments_cb>();
+            pt->DebugPixel(mouse_last_x, mouse_last_y, cb);
 
             if (ls) ls.reset();
-            ls = make_unique<lines>(segments);
+            ls = make_unique<lines>(cb->segments);
 
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 switchTo3D();
