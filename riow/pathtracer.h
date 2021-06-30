@@ -38,7 +38,11 @@ private:
             if (!scene.world->hit(curRay, epsilon, infinity, rec, rng)) {
                 emitted += throughput * scene.background;
 
-                if (cb) (*cb)(callback::NoHitTerminal::make());
+                if (cb) {
+                    if (max(scene.background) > 0.0) 
+                        (*cb)(callback::Emitted::make("background", scene.background));
+                    (*cb)(callback::NoHitTerminal::make());
+                }
 
                 return emitted;
             }
@@ -82,8 +86,12 @@ private:
                 if (cb) (*cb)(callback::SurfaceHit::make(rec));
 
                 scatter_record srec;
-                color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p) * throughput;
-                emitted += e;
+                color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p);
+                if (max(e) > 0.0)
+                    (*cb)(callback::Emitted::make(rec.obj_ptr->name, e));
+
+                emitted += e * throughput;
+
                 if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
                     if (cb) (*cb)(callback::AbsorbedTerminal::make());
 
@@ -118,6 +126,7 @@ private:
                     // sample material directly
                     scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
                     pdf_val = srec.pdf_ptr->value(scattered.direction());
+                    if (cb)(*cb)(callback::PdfSample::make(srec.pdf_ptr->name(), pdf_val));
                 }
                 else {
                     // multiple importance sampling of light and material pdf
@@ -126,6 +135,7 @@ private:
 
                     scattered = ray(rec.p, mixed_pdf.generate(rng));
                     pdf_val = mixed_pdf.value(scattered.direction());
+                    if (cb)(*cb)(callback::PdfSample::make(mixed_pdf.name(), pdf_val));
                 }
 
                 throughput *= srec.attenuation *

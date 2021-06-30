@@ -47,6 +47,8 @@ namespace tool {
 
         void render();
 
+        void debugPixel(unsigned x, unsigned y);
+
         void handle_input();
         void handle_mouse_move(double xPos, double yPos);
         void handle_mouse_buttons(int button, int action, int mods);

@@ -111,7 +111,7 @@ void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list
     //sampled->add(light_sphere);
 }
 
-void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled, bool add_light) {
     // ground
     auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -137,13 +137,15 @@ void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sa
         objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.1, -1.0), 0.5, glass));
     }
 
-    //auto material_light = make_shared<diffuse_light>(color(20.0));
-    //auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.1, material_light);
-    //objects->add(light_sphere);
-    //sampled->add(light_sphere);
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light_sphere);
+        sampled->add(light_sphere);
+    }
 }
 
-void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled, bool add_light) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
@@ -151,14 +153,18 @@ void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sam
     //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
     auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
     auto glass = make_shared<dielectric>(1.35, ketchup);
-    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.1, -1.0), 0.5, glass);
+    auto pure_glass = make_shared<dielectric>(1.5);
+    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.1, -1.0), 0.5, pure_glass);
+
     objects->add(ball);
     sampled->add(ball);
 
-    auto material_light = make_shared<diffuse_light>(color(20.0));
-    auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.1, material_light);
-    objects->add(light_sphere);
-    sampled->add(light_sphere);
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light_sphere);
+        sampled->add(light_sphere);
+    }
 }
 
 void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
@@ -224,7 +230,9 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
 }
 
 void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, bool verbose = false) {
-    auto cb = std::make_shared<callback::print_callback>(verbose);
+//    auto cb = std::make_shared<callback::print_callback>(verbose);
+    // auto cb = std::make_shared<callback::print_pdf_sample_cb>();
+    auto cb = std::make_shared<callback::print_sample_callback>(11, true);
     pt->DebugPixel(x, y, cb);
 }
 
@@ -232,6 +240,22 @@ void inspect_all(shared_ptr<tracer> pt, bool verbose = false, bool stopAtFirst =
     auto cb = std::make_shared<callback::dbg_find_gothrough_diffuse>("floor", verbose, stopAtFirst);
     pt->Render(cb);
     cerr << "Found " << cb->getCount() << " buggy samples\n";
+}
+
+void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y) {
+    // now display a window
+    vec3 lookat = cam->lookat;
+    vec3 lookfrom = cam->lookfrom;
+
+    tool::window w{
+        *image,
+        pt,
+        glm::vec3(lookat[0], lookat[1], lookat[2]), // look_at
+        glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2])  // look_from
+    };
+    w.set_scene(init_scene(world));
+    w.debugPixel(x, y);
+    w.render();
 }
 
 void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image) {
@@ -270,7 +294,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1;
+    const int samples_per_pixel = 128;
     const int max_depth = 500;
 
     // World
@@ -286,8 +310,8 @@ int main()
 
     switch (1) {
         case 1:
-            two_mediums(world, lights);
-            lookfrom = point3(0.09, 3.44, 4.15);
+            two_mediums(world, lights, true);
+            lookfrom = point3(3.40, 2.75, 3.12);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
             aperture = 0.1;
@@ -313,7 +337,16 @@ int main()
             break;
 
         case 4:
-            glass_ball(world, lights);
+            glass_ball(world, lights, true);
+            lookfrom = point3(3, 2, 2);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.6, 0.6, 0.7);
+            break;
+
+        case 5:
+            glass_ball(world, lights, false);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -345,11 +378,10 @@ int main()
         world,
         lights
     };
-    auto pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, max_depth);
+    auto pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
 
-    // Found a go through ray at(451, 187) : 0 FIXED
-    // Found a go through ray at(328, 327) : 0 FIXED
     // debug_pixel(pt, 199, 41, true);
-    inspect_all(pt/*, true, true*/);
-    //render(pt, world, cam, image);
+    // inspect_all(pt/*, true, true*/);
+    render(pt, world, cam, image);
+    // window_debug(pt, world, cam, image, 199, 41);
 }

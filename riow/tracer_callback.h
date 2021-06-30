@@ -74,7 +74,7 @@ namespace callback {
             Event("bounce"), depth(depth), throughput(throughput) {}
 
         virtual std::ostream& digest(std::ostream& o) const override {
-            return o << "bounce(" << depth << ")";
+            return o << "bounce(depth = " << depth << ", throughput = " << throughput << ")";
         }
 
         static event_ptr make(unsigned depth, const vec3& throughput) { 
@@ -183,6 +183,38 @@ namespace callback {
         static event_ptr make() { return std::make_shared<MaxDepthTerminal>(); }
     };
 
+    class PdfSample : public Event {
+    public:
+        PdfSample(std::string pdf_name, double pdf_val) : 
+            Event("pdf_sample"), pdf_name(pdf_name), pdf_val(pdf_val) {}
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "pdf_sample(name = " << pdf_name << ", val = " << pdf_val << ")\n";
+        }
+
+        static event_ptr make(std::string pdf_name, double pdf_val) { 
+            return std::make_shared<PdfSample>(pdf_name, pdf_val); 
+        }
+
+        const std::string pdf_name;
+        const double pdf_val;
+    };
+
+    class Emitted : public Event {
+    public:
+        Emitted(std::string emitter, const vec3& emitted) : 
+            Event("emitted"), emitter(emitter), emitted(emitted) {}
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "emitted[emitter= " << emitter << ", value = " << emitted << "]\n";
+        }
+
+        static event_ptr make(std::string emitter, const vec3& emitted) { return std::make_shared<Emitted>(emitter, emitted); }
+
+        const std::string emitter;
+        const vec3 emitted;
+    };
+
     class num_inters_callback : public callback {
     public:
         virtual void operator ()(std::shared_ptr<Event> event) override {
@@ -239,6 +271,30 @@ namespace callback {
         std::vector<tool::path_segment> segments;
     };
 
+    class print_pdf_sample_cb : public callback {
+    private:
+        bool done = false;
+
+    public:
+        virtual void operator ()(std::shared_ptr<Event> e) override {
+            if (auto n = cast<New>(e)) {
+                sample_id = n->sampleId;
+            } 
+            else if (auto p = cast<PdfSample>(e)) {
+                if (p->pdf_name.find("light") != std::string::npos) {
+                    done = true;
+                    std::cerr << "Sample " << sample_id << " has " << p->pdf_name << std::endl;
+                }
+            }
+        }
+
+        virtual bool terminate() const override {
+            return done;
+        }
+
+        unsigned sample_id;
+    };
+
     class print_callback : public callback {
     private:
         const bool verbose;
@@ -256,6 +312,36 @@ namespace callback {
                 else
                     std::cerr << e->name;
                 std::cerr << std::endl;
+            }
+        }
+    };
+
+    class print_sample_callback : public callback {
+    private:
+        const bool verbose;
+        const unsigned target_sample;
+        bool target_found = false;
+
+    public:
+        print_sample_callback(unsigned target_sample, bool verbose = false) :
+            target_sample(target_sample), verbose(verbose) {}
+
+        virtual void operator ()(std::shared_ptr<Event> e) override {
+            if (auto n = cast<New>(e)) {
+                target_found = n->sampleId == target_sample;
+            }
+            else if (target_found) {
+                if (auto b = cast<Bounce>(e)) {
+                    std::cerr << b->depth << ": throughput = " << b->throughput << std::endl;
+                }
+                else {
+                    std::cerr << "\t";
+                    if (verbose)
+                        e->digest(std::cerr);
+                    else
+                        std::cerr << e->name;
+                    std::cerr << std::endl;
+                }
             }
         }
     };
