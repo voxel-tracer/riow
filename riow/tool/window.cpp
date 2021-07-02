@@ -33,8 +33,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 namespace tool {
-    window::window(const yocto::color_image &image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
-            pt(tr), cam(camera{ static_cast<float>(image.width) / image.height, look_at, look_from }) {
+    window::window(std::shared_ptr<yocto::color_image> image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
+            pt(tr), cam(camera{ static_cast<float>(image->width) / image->height, look_at, look_from }) {
         // glfw: initialize and configure
         // ------------------------------
         glfwInit();
@@ -44,7 +44,7 @@ namespace tool {
 
         // glfw window creation
         // --------------------
-        glwindow = glfwCreateWindow(image.width, image.height, "The Tool", NULL, NULL);
+        glwindow = glfwCreateWindow(image->width, image->height, "The Tool", NULL, NULL);
         if (glwindow == NULL) {
             glfwTerminate();
             throw exception("Failed to create GLFW window");
@@ -62,7 +62,8 @@ namespace tool {
         // initialize shader
         shader = make_unique<Shader>("shaders/scene/vertex.glsl", "shaders/scene/fragment.glsl");
         screen = make_unique<screen_texture>(image);
-        pixel = make_unique<zoom_pixel>(image.width, image.height, 20);
+
+        //pixel = make_unique<zoom_pixel>(image->width, image->height, 20);
 
         // create global transformations
         // ----------------------
@@ -100,8 +101,12 @@ namespace tool {
 
             // render our instances
             if (is2D) {
+                pt->RenderIteration();
+                // glfwSetWindowTitle(glwindow, ("iters: " + pt->numIterations()));
+                std::cerr << "\riteration " << pt->numIterations() << std::flush;
+                screen->updateScreen();
                 screen->render();
-                pixel->render();
+                if (pixel) pixel->render();
             } else {
                 shader->use();
 
@@ -123,6 +128,11 @@ namespace tool {
         if (force || !is2D) {
             is2D = true;
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            if (cam.getChangedAndReset()) {
+                auto from = cam.getLookFrom();
+                auto at = cam.getLookAt();
+                pt->updateCamera(from.x, from.y, from.z, at.x, at.y, at.z);
+            }
         }
     }
 
@@ -149,7 +159,8 @@ namespace tool {
     void window::handle_mouse_buttons(int button, int action, int mods) {
         if (is2D) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
-                debugPixel(mouse_last_x, mouse_last_y);
+                //debugPixel(mouse_last_x, mouse_last_y);
+                switchTo3D();
             }
         } else {
             cam.handle_mouse_buttons(button, action, mods);

@@ -10,21 +10,13 @@ public:
         vec3 vup,
         double vfov, // vertical field-of-view in degrees
         double aspect_ratio,
-        double aperture,
-        double focus_dist): lookfrom(lookfrom), lookat(lookat) {
+        double aperture): vup(vup) {
         auto theta = degrees_to_radians(vfov);
         auto h = std::tan(theta / 2);
-        auto viewport_height = 2.0 * h;
-        auto viewport_width = aspect_ratio * viewport_height;
+        viewport_height = 2.0 * h;
+        viewport_width = aspect_ratio * viewport_height;
 
-        w = unit_vector(lookfrom - lookat);
-        u = unit_vector(cross(vup, w));
-        v = cross(w, u);
-
-        origin = lookfrom;
-        horizontal = focus_dist * viewport_width * u;
-        vertical = focus_dist * viewport_height * v;
-        lower_left_corner = origin - horizontal / 2 - vertical / 2 - focus_dist * w;
+        update(lookfrom, lookat);
 
         lens_radius = aperture / 2;
     }
@@ -34,15 +26,34 @@ public:
         vec3 offset = u * rd.x() + v * rd.y();
 
         return ray{
-            origin + offset,
-            lower_left_corner + s * horizontal + t * vertical - origin - offset };
+            lookfrom + offset,
+            lower_left_corner + s * horizontal + t * vertical - lookfrom - offset };
     }
 
-    const vec3 lookat;
-    const vec3 lookfrom;
+    point3 getLookAt() const { return lookat; }
+    point3 getLookFrom() const { return lookfrom; }
+
+    void update(point3 from, point3 at) {
+        lookfrom = from;
+        lookat = at;
+
+        w = unit_vector(lookfrom - lookat);
+        u = unit_vector(cross(vup, w));
+        v = cross(w, u);
+
+        auto focus_dist = (lookfrom - lookat).length();
+        horizontal = focus_dist * viewport_width * u;
+        vertical = focus_dist * viewport_height * v;
+        lower_left_corner = lookfrom - horizontal / 2 - vertical / 2 - focus_dist * w;
+    }
 
 private:
-    point3 origin;
+    const vec3 vup;
+    double viewport_width;
+    double viewport_height;
+
+    point3 lookat;
+    point3 lookfrom;
     point3 lower_left_corner;
     vec3 horizontal;
     vec3 vertical;

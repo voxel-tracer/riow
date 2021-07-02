@@ -12,6 +12,8 @@ namespace tool {
     private:
         const float rotate_speed = 0.5f;
         const float zoom_speed = 0.5f;
+        const float min_dist = 0.01f;
+        const float max_dist = 100.0f;
 
         float aspect_ratio;
         glm::vec3 look_at;
@@ -25,6 +27,8 @@ namespace tool {
         float mouse_last_x = 0.0f;
         float mouse_last_y = 0.0f;
         bool  mouse_left_pressed = false;
+
+        bool changed = false;
 
     public:
         camera(float ar, glm::vec3 look_at = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 look_from = glm::vec3(0.0f, 0.0f, -3.0f)) :
@@ -93,10 +97,19 @@ namespace tool {
         void handle_mouse_scroll(double xoffset, double yoffset) {
             dist_to_look_at += zoom_speed * yoffset;
 
-            if (dist_to_look_at < 0.5f) dist_to_look_at = 0.5f;
-            if (dist_to_look_at > 10.0f) dist_to_look_at = 10.0f;
+            if (dist_to_look_at < min_dist) dist_to_look_at = min_dist;
+            if (dist_to_look_at > max_dist) dist_to_look_at = max_dist;
 
             update_camera_vectors();
+        }
+
+        glm::vec3 getLookAt() const { return look_at; }
+        glm::vec3 getLookFrom() const { return look_from; }
+
+        bool getChangedAndReset() {
+            bool c = changed;
+            changed = false;
+            return c;
         }
 
     private:
@@ -105,6 +118,8 @@ namespace tool {
             mat = glm::rotate(mat, glm::radians(y_angle), glm::vec3(0.0f, 1.0f, 0.0f));
             mat = glm::rotate(mat, glm::radians(x_angle), glm::vec3(1.0f, 0.0f, 0.0f));
             look_from = glm::vec3(mat * glm::vec4(0.0f, 0.0f, 1.0f, 1.0f)) * dist_to_look_at + look_at;
+
+            changed = true;
         }
     };
 

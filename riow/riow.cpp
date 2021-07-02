@@ -51,31 +51,37 @@ void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable
     {
         // red ball
         auto medium = make_shared<IsotropicScatteringMedium>(color(.8, .3, .3), .25, 2.0);
-        auto glass = make_shared<dielectric>(1.05, medium);
+        auto glass = make_shared<dielectric>(1.35, medium);
 
-        objects->add(make_shared<sphere>("red_ball", point3(-1.0, 0.1, -1.0), 0.5, glass));
+        auto ball = make_shared<sphere>("red_ball", point3(-1.0, 0.1, -1.0), 0.5, glass);
+        objects->add(ball);
+        sampled->add(ball);
     }
 
     {
         // green ball
         auto medium = make_shared<IsotropicScatteringMedium>(color(.3, .8, .3), .25, 2.0);
-        auto glass = make_shared<dielectric>(1.05, medium);
+        auto glass = make_shared<dielectric>(1.35, medium);
 
-        objects->add(make_shared<sphere>("green_ball", point3(0.0, 0.1, -1.0), 0.5, glass));
+        auto ball = make_shared<sphere>("green_ball", point3(0.0, 0.1, -1.0), 0.5, glass);
+        objects->add(ball);
+        sampled->add(ball);
     }
 
     {
         // blue ball
         auto medium = make_shared<IsotropicScatteringMedium>(color(.3, .3, .8), .25, 2.0);
-        auto glass = make_shared<dielectric>(1.05, medium);
+        auto glass = make_shared<dielectric>(1.35, medium);
 
-        objects->add(make_shared<sphere>("blue_ball", point3(1.0, 0.1, -1.0), 0.5, glass));
+        auto ball = make_shared<sphere>("blue_ball", point3(1.0, 0.1, -1.0), 0.5, glass);
+        objects->add(ball);
+        sampled->add(ball);
     }
 
-    //auto material_light = make_shared<diffuse_light>(color(20.0));
-    //auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.1, material_light);
-    //objects->add(light_sphere);
-    //sampled->add(light_sphere);
+    auto material_light = make_shared<diffuse_light>(color(20.0));
+    auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+    objects->add(light_sphere);
+    sampled->add(light_sphere);
 }
 
 void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
@@ -244,12 +250,11 @@ void inspect_all(shared_ptr<tracer> pt, bool verbose = false, bool stopAtFirst =
 
 void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y) {
     // now display a window
-    vec3 lookat = cam->lookat;
-    vec3 lookfrom = cam->lookfrom;
+    vec3 lookat = cam->getLookAt();
+    vec3 lookfrom = cam->getLookFrom();
 
     tool::window w{
-        *image,
-        pt,
+        image, pt,
         glm::vec3(lookat[0], lookat[1], lookat[2]), // look_at
         glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2])  // look_from
     };
@@ -259,32 +264,34 @@ void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared
 }
 
 void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image) {
-    clock_t start = clock();
-    auto cb = std::make_shared<callback::num_inters_callback>();
-    pt->Render(cb);
-    clock_t stop = clock();
-    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
-    cerr << "Rendering took " << timer_seconds << " seconds. \nTotal intersections = " << cb->count << endl;
-
-    auto error = string{};
-    if (!save_image("out.png", *image, error)) {
-        cerr << "Failed to save image: " << error << endl;
-        return;
-    }
+    //clock_t start = clock();
+    //auto cb = std::make_shared<callback::num_inters_callback>();
+    // pt->Render(cb);
+    //for (auto i = 0; i != 16; ++i) {
+    //    pt->RenderIteration(cb);
+    //}
+    //clock_t stop = clock();
+    //double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    //cerr << "Rendering took " << timer_seconds << " seconds. \nTotal intersections = " << cb->count << endl;
 
     // now display a window
-    vec3 lookat = cam->lookat;
-    vec3 lookfrom = cam->lookfrom;
+    vec3 lookat = cam->getLookAt();
+    vec3 lookfrom = cam->getLookFrom();
 
     tool::window w{
-        *image,
-        pt,
+        image, pt,
         glm::vec3(lookat[0], lookat[1], lookat[2]), // look_at
         glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2])  // look_from
     };
     w.set_scene(init_scene(world));
 
     w.render();
+
+    auto error = string{};
+    if (!save_image("out.png", *image, error)) {
+        cerr << "Failed to save image: " << error << endl;
+        return;
+    }
 }
 
 int main()
@@ -294,7 +301,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 128;
+    const int samples_per_pixel = 16;
     const int max_depth = 500;
 
     // World
@@ -308,7 +315,7 @@ int main()
     auto aperture = 0.0;
     color background { 0, 0, 0 };
 
-    switch (1) {
+    switch (6) {
         case 1:
             two_mediums(world, lights, true);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -367,9 +374,8 @@ int main()
 
     // Camera
     vec3 vup{ 0, 1, 0 };
-    auto dist_to_focus = (lookfrom - lookat).length();
 
-    auto cam = make_shared<camera>(lookfrom, lookat, vup, vfov, aspect_ratio, aperture, dist_to_focus);
+    auto cam = make_shared<camera>(lookfrom, lookat, vup, vfov, aspect_ratio, aperture);
     auto image = make_shared<yocto::color_image>(yocto::make_image(image_width, image_height, false));
 
     // Render

@@ -21,6 +21,10 @@ private:
     const unsigned max_depth;
     const unsigned rroulette_depth;
 
+    unsigned iterations = 0;
+    std::vector<color> rawData;
+    std::vector<unsigned> seeds;
+
     color ray_color(const ray& r, shared_ptr<rnd> rng, callback::callback_ptr cb) {
         const double epsilon = 0.001;
 
@@ -87,7 +91,7 @@ private:
 
                 scatter_record srec;
                 color e = rec.mat_ptr->emitted(curRay, rec, rec.u, rec.v, rec.p);
-                if (max(e) > 0.0)
+                if (cb && max(e) > 0.0)
                     (*cb)(callback::Emitted::make(rec.obj_ptr->name, e));
 
                 emitted += e * throughput;
@@ -164,13 +168,24 @@ private:
 
     }
 
-    color RenderPixel(unsigned i, unsigned j, callback::callback_ptr cb) {
+    unsigned pixelIdx(unsigned i, unsigned j) const {
+        return i + j * image->width;
+    }
+
+    void initSeeds() {
+        for (auto j = 0; j != image->height; ++j) {
+            for (auto i = 0; i != image->width; ++i) {
+                seeds[pixelIdx(i, j)] = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
+            }
+        }
+    }
+
+    color RenderPixel(unsigned i, unsigned j, unsigned spp, callback::callback_ptr cb) {
         color pixel_color{ 0, 0, 0 };
 
-        auto local_seed = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
-        auto local_rng = make_shared<xor_rnd>(local_seed);
+        auto local_rng = make_shared<xor_rnd>(seeds[pixelIdx(i, j)]);
 
-        for (auto s = 0; s != samples_per_pixel; ++s) {
+        for (auto s = 0; s != spp; ++s) {
             auto u = (i + local_rng->random_double()) / (image->width - 1);
             auto v = (j + local_rng->random_double()) / (image->height - 1);
             ray r = cam->get_ray(u, v, local_rng);
@@ -181,18 +196,23 @@ private:
             if (cb && cb->terminate()) break;
         }
 
+        seeds[pixelIdx(i, j)] = local_rng->getState();
+
         return pixel_color;
     }
 
 public:
-    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md, unsigned rrd) : 
-        cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md), rroulette_depth(rrd) {}
+    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md, unsigned rrd)
+        : cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md), rroulette_depth(rrd),
+        rawData(im->width * im->height, color()), seeds(im->width * im->height, 0) {
+        initSeeds();
+    }
 
     virtual void Render(callback::callback_ptr cb) override {
         for (auto j = image->height - 1; j >= 0; --j) {
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
-                color pixel_color = RenderPixel(i, j, cb);
+                color pixel_color = RenderPixel(i, j, samples_per_pixel, cb);
                 if (cb && cb->terminate()) return;
 
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
@@ -202,12 +222,36 @@ public:
         std::cerr << std::endl;
     }
 
+    virtual void RenderIteration(callback::callback_ptr cb) override {
+        ++iterations;
+
+        for (auto j = 0; j != image->height; ++j) {
+            for (auto i = 0; i != image->width; ++i) {
+                const unsigned idx = i + j * image->width;
+                rawData[idx] += RenderPixel(i, j, 1, cb);
+                if (cb && cb->terminate()) return;
+
+                yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], iterations));
+            }
+        }
+    }
+
     virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) override {
         std::cerr << "DebugPixel(" << x << ", " << y << ")\n";
 
         // to render pixel (x, y)
         auto i = x;
         auto j = (image->height - 1) - y;
-        RenderPixel(i, j, cb);
+        RenderPixel(i, j, samples_per_pixel, cb);
+    }
+
+    virtual unsigned numIterations() const override { return iterations; }
+
+    virtual void updateCamera(
+        double from_x, double from_y, double from_z,
+        double at_x, double at_y, double at_z) override {
+        cam->update({ from_x, from_y, from_z }, { at_x, at_y, at_z });
+        std::fill(rawData.begin(), rawData.end(), color());
+        iterations = 0;
     }
 };

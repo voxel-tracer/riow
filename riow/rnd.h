@@ -105,6 +105,10 @@ public:
         return seed;
     }
 
+    unsigned getState() const {
+        return state;
+    }
+
 private:
     unsigned int xor_shift_32() {
         unsigned int x = state;

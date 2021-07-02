@@ -11,10 +11,10 @@ namespace tool {
         unsigned texture;
         unsigned VBO, VAO, EBO;
 
-        yocto::color_image image;
+        std::shared_ptr<yocto::color_image> image;
 
     public:
-        screen_texture(const yocto::color_image &image) : image(image) {
+        screen_texture(std::shared_ptr<yocto::color_image> image) : image(image) {
             float vertices[] = {
                 // position           // texture coords
                 +1.0f, +1.0f,  0.0f,  1.0f, 0.0f,
@@ -58,9 +58,7 @@ namespace tool {
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-            vector<yocto::vec4b> bytes;
-            yocto::float_to_byte(bytes, image.pixels);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &bytes[0]);
+            updateScreen();
 
             // tell opengl for each sampler to which texture unit it belongs to (only had to be done once)
             shader.use();
@@ -73,8 +71,14 @@ namespace tool {
             glDeleteBuffers(1, &EBO);
         }
 
+        void updateScreen() {
+            vector<yocto::vec4b> bytes;
+            yocto::float_to_byte(bytes, image->pixels);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &bytes[0]);
+        }
+
         glm::vec3 get_color(unsigned x, unsigned y) {
-            yocto::vec4f color = yocto::get_pixel(image, x, y);
+            yocto::vec4f color = yocto::get_pixel(*image, x, y);
             return glm::vec3(color.x, color.y, color.z);
         }
 

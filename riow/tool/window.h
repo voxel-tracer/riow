@@ -40,7 +40,7 @@ namespace tool {
         void switchTo2D(bool force);
 
     public:
-        window(const yocto::color_image& image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
+        window(std::shared_ptr<yocto::color_image> image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
         ~window();
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }
