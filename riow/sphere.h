@@ -12,6 +12,10 @@ public:
 
     virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
     virtual double pdf_value(const point3& o, const vec3& v) const override;
+    virtual std::string pdf_name()const override {
+        return name;
+    }
+
     virtual vec3 random(const point3& o, shared_ptr<rnd> rng) override;
 
 private:

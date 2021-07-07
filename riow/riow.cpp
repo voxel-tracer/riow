@@ -23,7 +23,7 @@
 
 using namespace std;
 
-void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+void three_spheres(shared_ptr<hittable_list> objects) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
 
@@ -42,7 +42,7 @@ void three_spheres(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> 
     objects->add(make_shared<sphere>("right_ball_outer", point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
-void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
     // ground
     auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -55,7 +55,6 @@ void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable
 
         auto ball = make_shared<sphere>("red_ball", point3(-1.0, 0.1, -1.0), 0.5, glass);
         objects->add(ball);
-        sampled->add(ball);
     }
 
     {
@@ -65,7 +64,6 @@ void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable
 
         auto ball = make_shared<sphere>("green_ball", point3(0.0, 0.1, -1.0), 0.5, glass);
         objects->add(ball);
-        sampled->add(ball);
     }
 
     {
@@ -75,16 +73,16 @@ void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable
 
         auto ball = make_shared<sphere>("blue_ball", point3(1.0, 0.1, -1.0), 0.5, glass);
         objects->add(ball);
-        sampled->add(ball);
     }
 
-    auto material_light = make_shared<diffuse_light>(color(20.0));
-    auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-    objects->add(light_sphere);
-    sampled->add(light_sphere);
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light);
+    }
 }
 
-void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
     // ground
     auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -111,13 +109,14 @@ void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable_list
         objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.1, -1.0), 0.5, glass));
     }
 
-    //auto material_light = make_shared<diffuse_light>(color(20.0));
-    //auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.1, material_light);
-    //objects->add(light_sphere);
-    //sampled->add(light_sphere);
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.1, material_light);
+        objects->add(light);
+    }
 }
 
-void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled, bool add_light) {
+void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
     // ground
     auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -145,13 +144,12 @@ void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sa
 
     if (add_light) {
         auto material_light = make_shared<diffuse_light>(color(20.0));
-        auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light_sphere);
-        sampled->add(light_sphere);
+        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light);
     }
 }
 
-void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled, bool add_light) {
+void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
@@ -163,17 +161,26 @@ void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sam
     auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.1, -1.0), 0.5, pure_glass);
 
     objects->add(ball);
-    sampled->add(ball);
 
     if (add_light) {
         auto material_light = make_shared<diffuse_light>(color(20.0));
-        auto light_sphere = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light_sphere);
-        sampled->add(light_sphere);
+        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light);
     }
 }
 
-void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable_list> sampled) {
+void metal_ball(shared_ptr<hittable_list> objects) {
+    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
+
+    //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
+    auto met = make_shared<metal>(color(0.8, 0.6, 0.2), 0.1);
+    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.1, -1.0), 0.5, met);
+    objects->add(ball);
+}
+
+void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable> &light, bool add_light) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
 
@@ -186,10 +193,11 @@ void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hit
     shared_ptr<hittable> sphere1 = make_shared<sphere>("center_ball", point3(0.0, 0.0, -1.0), 0.5, white);
     objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.99, .93, .93)));
 
-    auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-    auto light_sphere = make_shared<sphere>("light", point3(0.0, 2.0, 0.0), 0.1, material_light);
-    objects->add(light_sphere);
-    sampled->add(light_sphere);
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
+        light = make_shared<sphere>("light", point3(0.0, 2.0, 0.0), 0.1, material_light);
+        objects->add(light);
+    }
 
     objects->add(make_shared<sphere>("left_ball", point3(-1.0, 0.0, -1.0), 0.5, material_left));
 
@@ -235,6 +243,14 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
     return make_shared<tool::scene>(scene);
 }
 
+void save_image(shared_ptr<yocto::color_image> image, string filename) {
+    auto error = string{};
+    if (!save_image(filename, *image, error)) {
+        cerr << "Failed to save image: " << error << endl;
+        return;
+    }
+}
+
 void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, bool verbose = false) {
 //    auto cb = std::make_shared<callback::print_callback>(verbose);
     // auto cb = std::make_shared<callback::print_pdf_sample_cb>();
@@ -264,17 +280,6 @@ void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared
 }
 
 void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image) {
-    //clock_t start = clock();
-    //auto cb = std::make_shared<callback::num_inters_callback>();
-    // pt->Render(cb);
-    //for (auto i = 0; i != 16; ++i) {
-    //    pt->RenderIteration(cb);
-    //}
-    //clock_t stop = clock();
-    //double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
-    //cerr << "Rendering took " << timer_seconds << " seconds. \nTotal intersections = " << cb->count << endl;
-
-    // now display a window
     vec3 lookat = cam->getLookAt();
     vec3 lookfrom = cam->getLookFrom();
 
@@ -286,9 +291,35 @@ void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<c
     w.set_scene(init_scene(world));
 
     w.render();
+}
 
+void offline_render(shared_ptr<tracer> pt) {
+    clock_t start = clock();
+    auto cb = std::make_shared<callback::num_inters_callback>();
+    pt->Render(cb);
+    clock_t stop = clock();
+    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    cerr << "Rendering took " << timer_seconds << " seconds.\n" 
+         << "Total intersections = " << cb->count << endl;
+}
+
+void test_envmap(std::string hdr_filename, std::shared_ptr<EnvMap> envmap) {
+    // let's convert envmap to LDR image
+    //auto hdr = EnvMap::loadImage("hdrs/christmas_photo_studio_04_1k.hdr");
+    auto hdr = EnvMap::loadImage(hdr_filename);
+    auto ldr = yocto::tonemap_image(hdr, 0.25f, true);
+
+    // let's sample a bunch of points and plot them on the ldr image
+    auto rng = std::make_shared<xor_rnd>();
+    for (auto i : yocto::range(10000)) {
+        auto sample = envmap->pdf->generate(rng);
+        auto ij = dir2ij(sample, hdr.width, hdr.height);
+        yocto::set_pixel(ldr, ij.x, ij.y, { 1.0f, 0.0f, 0.0f, 1.0f });
+    }
+
+    // save the image to disk
     auto error = string{};
-    if (!save_image("out.png", *image, error)) {
+    if (!save_image("ldr_test.png", ldr, error)) {
         cerr << "Failed to save image: " << error << endl;
         return;
     }
@@ -307,17 +338,19 @@ int main()
     // World
 
     auto world = make_shared<hittable_list>();
-    auto lights = make_shared<hittable_list>();
+    auto light = shared_ptr<hittable>{};
 
     point3 lookfrom;
     point3 lookat;
     auto vfov = 40.0;
     auto aperture = 0.0;
     color background { 0, 0, 0 };
+    bool use_envmap = true;
+    bool add_light = false;
 
-    switch (6) {
+    switch (1) {
         case 1:
-            two_mediums(world, lights, true);
+            two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -326,7 +359,7 @@ int main()
             break;
 
         case 2:
-            two_glass_balls(world, lights);
+            two_glass_balls(world, light, add_light);
             lookfrom = point3(0.09, 3.44, 4.15);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -335,7 +368,7 @@ int main()
             break;
 
         case 3:
-            three_spheres_with_medium(world, lights);
+            three_spheres_with_medium(world, light, add_light);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -344,7 +377,7 @@ int main()
             break;
 
         case 4:
-            glass_ball(world, lights, true);
+            glass_ball(world, light, add_light);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -352,8 +385,17 @@ int main()
             background = color(0.6, 0.6, 0.7);
             break;
 
-        case 5:
-            glass_ball(world, lights, false);
+        case 6:
+            three_spheres(world);
+            lookfrom = point3(3, 2, 2);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.6, 0.6, 0.7);
+            break;
+
+        case 7:
+            metal_ball(world);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -362,8 +404,8 @@ int main()
             break;
 
         default:
-        case 6:
-            multiple_glass_balls(world, lights);
+        case 8:
+            multiple_glass_balls(world, light, add_light);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -378,16 +420,27 @@ int main()
     auto cam = make_shared<camera>(lookfrom, lookat, vup, vfov, aspect_ratio, aperture);
     auto image = make_shared<yocto::color_image>(yocto::make_image(image_width, image_height, false));
 
+    shared_ptr<EnvMap> envmap = nullptr;
+    if (use_envmap) {
+        auto hdr_filename = "hdrs/christmas_photo_studio_04_1k.hdr";
+        //auto hdr_filename = "hdrs/parched_canal_1k.exr";
+        envmap = make_shared<EnvMap>(hdr_filename);
+    }
+
     // Render
     scene_desc scene{
         background,
         world,
-        lights
+        light,
+        envmap
     };
     auto pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
 
     // debug_pixel(pt, 199, 41, true);
     // inspect_all(pt/*, true, true*/);
     render(pt, world, cam, image);
+    //offline_render(pt);
     // window_debug(pt, world, cam, image, 199, 41);
+
+    //save_image(image, "glass_ball_light_1k_spp.png"); 
 }

@@ -4,12 +4,23 @@
 #include "color.h"
 
 #include <yocto/yocto_parallel.h>
+#include "envmap.h"
 
 
 struct scene_desc {
     color background;
     shared_ptr<hittable> world;
-    shared_ptr<hittable_list> lights;
+    std::shared_ptr<hittable> light;
+    shared_ptr<EnvMap> envmap;
+
+    shared_ptr<pdf> getSceneLightPdf(const point3& origin) const {
+        if (envmap) return envmap->pdf;
+        else if (light) return make_shared <hittable_pdf>(light, origin);
+    }
+
+    bool hasLightPdf() const {
+        return envmap || light;
+    }
 };
 
 class pathtracer: public tracer {
@@ -40,7 +51,12 @@ private:
 
             hit_record rec;
             if (!scene.world->hit(curRay, epsilon, infinity, rec, rng)) {
-                emitted += throughput * scene.background;
+                if (scene.envmap) {
+                    emitted += throughput * scene.envmap->value(curRay.direction());
+                }
+                else {
+                    emitted += throughput * scene.background;
+                }
 
                 if (cb) {
                     if (max(scene.background) > 0.0) 
@@ -124,23 +140,14 @@ private:
                     continue;
                 }
 
-                ray scattered;
-                double pdf_val;
-                if (scene.lights->objects.empty()) {
-                    // sample material directly
-                    scattered = ray(rec.p, srec.pdf_ptr->generate(rng));
-                    pdf_val = srec.pdf_ptr->value(scattered.direction());
-                    if (cb)(*cb)(callback::PdfSample::make(srec.pdf_ptr->name(), pdf_val));
+                shared_ptr<pdf> mat_pdf = srec.pdf_ptr;
+                if (scene.hasLightPdf()) {
+                    mat_pdf = make_shared<mixture_pdf>(scene.getSceneLightPdf(rec.p), srec.pdf_ptr);
                 }
-                else {
-                    // multiple importance sampling of light and material pdf
-                    auto light_ptr = make_shared<hittable_pdf>(scene.lights, rec.p);
-                    mixture_pdf mixed_pdf(light_ptr, srec.pdf_ptr);
 
-                    scattered = ray(rec.p, mixed_pdf.generate(rng));
-                    pdf_val = mixed_pdf.value(scattered.direction());
-                    if (cb)(*cb)(callback::PdfSample::make(mixed_pdf.name(), pdf_val));
-                }
+                ray scattered = ray(rec.p, mat_pdf->generate(rng));
+                double pdf_val = mat_pdf->value(scattered.direction());
+                if (cb)(*cb)(callback::PdfSample::make(mat_pdf->name(), pdf_val));
 
                 throughput *= srec.attenuation *
                     rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;

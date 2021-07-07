@@ -1,5 +1,7 @@
 #pragma once
 
+#include <yocto/yocto_sampling.h>
+
 #include "rtweekend.h"
 #include "onb.h"
 
@@ -48,13 +50,13 @@ public:
         return "hittable_pdf(name = " + ptr->pdf_name() + ")";
     }
 
-    point3 o;
-    shared_ptr<hittable> ptr;
+    const point3 o;
+    const shared_ptr<hittable> ptr;
 };
 
 class mixture_pdf : public pdf {
 private:
-    shared_ptr<pdf> used;
+    shared_ptr<pdf> chosen = nullptr;
 
 public:
     mixture_pdf(shared_ptr<pdf> p0, shared_ptr<pdf> p1) {
@@ -67,12 +69,12 @@ public:
     }
 
     virtual vec3 generate(shared_ptr<rnd> rng) {
-        used = (rng->random_double() < 0.5) ? p[0] : p[1];
-        return used->generate(rng);
+        chosen = (rng->random_double() < 0.5) ? p[0] : p[1];
+        return chosen->generate(rng);
     }
 
     virtual std::string name() const override {
-        return "mixture_pdf(" + used->name() + ")";
+        return "mixture_pdf(" + chosen->name() + ")";
     }
 
     shared_ptr<pdf> p[2];
