@@ -20,8 +20,8 @@ namespace tool {
     private:
         bool is2D;
         bool esc_pressed = false;
-        float mouse_last_x = 0.0f;
-        float mouse_last_y = 0.0f;
+        double mouse_last_x = 0.0f;
+        double mouse_last_y = 0.0f;
 
         camera cam;
         GLFWwindow* glwindow;
@@ -35,6 +35,7 @@ namespace tool {
         unique_ptr<lines> ls = NULL;
 
         shared_ptr<tracer> pt;
+        bool isRendering = false;
 
         void switchTo3D(bool force);
         void switchTo2D(bool force);
@@ -45,7 +46,7 @@ namespace tool {
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }
 
-        void render();
+        void render(int spp = -1);
 
         void debugPixel(unsigned x, unsigned y);
 

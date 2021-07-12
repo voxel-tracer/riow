@@ -6,6 +6,8 @@
 #include "color.h"
 #include "hittable_list.h"
 #include "sphere.h"
+#include "plane.h"
+#include "box.h"
 #include "constant_medium.h"
 #include "camera.h"
 #include "material.h"
@@ -118,9 +120,10 @@ void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable> lig
 
 void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
     // ground
-    auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
+    //auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
+    //auto material_ground = make_shared<lambertian>(checker);
+    auto material_ground = make_shared<lambertian>(color(0.4));
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.501, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     color clr = { .98, .0061, .0033 };
     double ad = 0.005;
@@ -131,7 +134,7 @@ void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, 
         color clr = { 1.0, 1.0, 1.0 };
         auto diffuse = make_shared<diffuse_subsurface_scattering>(0.5, clr, medium);
 
-        objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.1, -1.0), 0.5, diffuse));
+        objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.0, -1.0), 0.5, diffuse));
     }
 
     {
@@ -139,7 +142,7 @@ void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, 
         auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
         auto glass = make_shared<dielectric>(1.35, medium);
 
-        objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.1, -1.0), 0.5, glass));
+        objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.0, -1.0), 0.5, glass));
     }
 
     if (add_light) {
@@ -149,10 +152,133 @@ void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, 
     }
 }
 
-void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+void dielectric_and_sss(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
+    // ground
+    //auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
+    //auto material_ground = make_shared<lambertian>(checker);
+    auto material_ground = make_shared<lambertian>(color(1.0));
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.501, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    color clr = { .98, .0061, .0033 };
+    double ad = 0.005;
+    double sd = 0.5;
+    {
+        // white diffuse scattering with red subsurface scattering
+        auto medium = make_shared<NoScatterMedium>(clr, ad);
+        color clr = { 1.0, 1.0, 1.0 };
+        auto glass = make_shared<dielectric>(1.35, medium);
+
+        objects->add(make_shared<sphere>("dielectric_ball", point3(-0.5, 0.0, -1.0), 0.5, glass));
+    }
+
+    {
+        // red ball with subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
+        auto glass = make_shared<dielectric>(1.35, medium);
+
+        objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.0, -1.0), 0.5, glass));
+    }
+
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light);
+    }
+}
+
+void diffuse_and_sss(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
+    // ground
+    //auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
+    //auto material_ground = make_shared<lambertian>(checker);
+    auto material_ground = make_shared<lambertian>(color(0.4));
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.501, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    color clr = { .98, .0061, .0033 };
+    double ad = 0.005;
+    double sd = 0.5;
+    {
+        // white diffuse scattering with red subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
+        color clr = { 1.0, 1.0, 1.0 };
+        auto diffuse = make_shared<diffuse_subsurface_scattering>(0.5, clr, medium);
+
+        objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.0, -1.0), 0.5, diffuse));
+    }
+
+    {
+        // white diffuse ball
+        auto white_diffuse = make_shared<lambertian>(color(1.0, 1.0, 1.0));
+
+        objects->add(make_shared<sphere>("diffuse_ball", point3(0.5, 0.0, -1.0), 0.5, white_diffuse));
+    }
+
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
+        objects->add(light);
+    }
+}
+
+void simple_box(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
+
+    // auto material_ground = make_shared<lambertian>(color(0.4));
+    shared_ptr<texture> checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.101, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    shared_ptr<material> mat;
+
+    int type = 3;
+    switch (type) {
+    case 0: {
+        // red diffuse
+        mat = make_shared<lambertian>(color(0.5, 0.1, 0.1));
+        break;
+    }
+    case 1: {
+        // dark grey diffuse
+        mat = make_shared<lambertian>(color(0.1));
+        break;
+    }
+    case 2: {
+        // red glass
+        auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
+        mat = make_shared<dielectric>(1.35, ketchup);
+        break;
+    }
+    case 3: {
+        // pure glass
+        mat = make_shared<dielectric>(1.2);
+        break;
+    }
+    case 4: {
+        // white diffuse scattering with red subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 0.005, 0.5);
+        mat = make_shared<diffuse_subsurface_scattering>(0.5, color(1.0), medium);
+        break;
+    }
+    case 5: {
+        // red ball with subsurface scattering
+        auto medium = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 0.005, 0.5);
+        mat = make_shared<dielectric>(1.5, medium);
+    }
+    }
+
+    objects->add(make_shared<box>("base", point3(), vec3(1.0, 0.1, 1.0), mat));
+
+    if (add_light) {
+        auto material_light = make_shared<diffuse_light>(color(20.0));
+        light = make_shared<sphere>("light", point3(0.0, 15, 1.0), 0.5, material_light);
+        objects->add(light);
+    }
+
+}
+
+void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
+    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
+    //auto material_ground = make_shared<lambertian>(checker);
+    auto material_ground = make_shared<lambertian>(color(0.4));
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.5, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
     auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
@@ -208,11 +334,21 @@ void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hit
 shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
     auto scene = yocto::scene_model{};
     {
+        // sphere shape
         {
             auto shape = yocto::scene_shape{};
             // make shape with 8 steps in resolution and scale of 1
             auto quads = yocto::vector<yocto::vec4i>{};
             yocto::make_sphere(quads, shape.positions, shape.normals, shape.texcoords, 8, 1, 1);
+            shape.triangles = quads_to_triangles(quads);
+            scene.shapes.push_back(shape);
+        }
+        // box shape
+        {
+            auto shape = yocto::scene_shape{};
+            // make shape with 8 steps in resolution and scale of 1
+            auto quads = yocto::vector<yocto::vec4i>{};
+            yocto::make_cube(quads, shape.positions, shape.normals, shape.texcoords, 1);
             shape.triangles = quads_to_triangles(quads);
             scene.shapes.push_back(shape);
         }
@@ -234,6 +370,18 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
                     yocto::scaling_frame({ (float)s->radius, (float)s->radius, (float)s->radius });
                 scene.instances.push_back(instance);
             }
+            else if (auto b = dynamic_pointer_cast<box>(o)) {
+                auto bcenter = (b->bmax + b->bmin) / 2;
+                auto bsize = (b->bmax - b->bmin) / 2;
+
+                auto instance = yocto::scene_instance{};
+                instance.shape = 1; // box shape
+                instance.material = 0;
+                instance.frame =
+                    yocto::translation_frame({ (float)bcenter[0], (float)bcenter[1], (float)bcenter[2] }) *
+                    yocto::scaling_frame({ (float)bsize[0], (float)bsize[1], (float)bsize[2] });
+                scene.instances.push_back(instance);
+            }
         }
     }
 
@@ -252,14 +400,12 @@ void save_image(shared_ptr<yocto::color_image> image, string filename) {
 }
 
 void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, bool verbose = false) {
-//    auto cb = std::make_shared<callback::print_callback>(verbose);
-    // auto cb = std::make_shared<callback::print_pdf_sample_cb>();
-    auto cb = std::make_shared<callback::print_sample_callback>(11, true);
+    auto cb = std::make_shared<callback::print_callback>(verbose);
     pt->DebugPixel(x, y, cb);
 }
 
 void inspect_all(shared_ptr<tracer> pt, bool verbose = false, bool stopAtFirst = false) {
-    auto cb = std::make_shared<callback::dbg_find_gothrough_diffuse>("floor", verbose, stopAtFirst);
+    auto cb = std::make_shared<callback::dbg_find_gothrough_diffuse>("floor_plane", verbose, stopAtFirst);
     pt->Render(cb);
     cerr << "Found " << cb->getCount() << " buggy samples\n";
 }
@@ -279,7 +425,7 @@ void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared
     w.render();
 }
 
-void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image) {
+void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, int spp) {
     vec3 lookat = cam->getLookAt();
     vec3 lookfrom = cam->getLookFrom();
 
@@ -290,7 +436,7 @@ void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<c
     };
     w.set_scene(init_scene(world));
 
-    w.render();
+    w.render(spp);
 }
 
 void offline_render(shared_ptr<tracer> pt) {
@@ -332,7 +478,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 16;
+    const int samples_per_pixel = 1;
     const int max_depth = 500;
 
     // World
@@ -348,8 +494,8 @@ int main()
     bool use_envmap = true;
     bool add_light = false;
 
-    switch (1) {
-        case 1:
+    switch (2) {
+        case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
             lookat = point3(0, 0, -1);
@@ -357,8 +503,23 @@ int main()
             aperture = 0.1;
             background = color(1.0, 1.0, 1.0);
             break;
-
+        case 1:
+            diffuse_and_sss(world, light, add_light);
+            lookfrom = point3(3.40, 2.75, 3.12);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(1.0, 1.0, 1.0);
+            break;
         case 2:
+            dielectric_and_sss(world, light, add_light);
+            lookfrom = point3(3.40, 2.75, 3.12);
+            lookat = point3(0, 0, -1);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(1.0, 1.0, 1.0);
+            break;
+        case 3:
             two_glass_balls(world, light, add_light);
             lookfrom = point3(0.09, 3.44, 4.15);
             lookat = point3(0, 0, -1);
@@ -366,8 +527,7 @@ int main()
             aperture = 0.1;
             background = color(1.0, 1.0, 1.0);
             break;
-
-        case 3:
+        case 4:
             three_spheres_with_medium(world, light, add_light);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
@@ -375,8 +535,7 @@ int main()
             aperture = 0.1;
             background = color(0.70, 0.80, 1.00);
             break;
-
-        case 4:
+        case 5:
             glass_ball(world, light, add_light);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
@@ -384,8 +543,16 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-
         case 6:
+            simple_box(world, light, add_light);
+            //lookfrom = point3(3, 2, 2);
+            lookfrom = point3(3.68871, 1.71156, 3.11611);
+            lookat = point3(0, 0, 0);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.6, 0.6, 0.7);
+            break;
+        case 7:
             three_spheres(world);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
@@ -393,8 +560,7 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-
-        case 7:
+        case 8:
             metal_ball(world);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
@@ -402,9 +568,8 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-
         default:
-        case 8:
+        case 9:
             multiple_glass_balls(world, light, add_light);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
@@ -436,11 +601,11 @@ int main()
     };
     auto pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
 
-    // debug_pixel(pt, 199, 41, true);
-    // inspect_all(pt/*, true, true*/);
-    render(pt, world, cam, image);
-    //offline_render(pt);
-    // window_debug(pt, world, cam, image, 199, 41);
+    // debug_pixel(pt, 2, 0, true);
+    // inspect_all(pt, true, true);
+    render(pt, world, cam, image, -1); // pass spp=0 to disable progressive rendering
+    // offline_render(pt);
+    // window_debug(pt, world, cam, image, 265, 359);
 
-    //save_image(image, "glass_ball_light_1k_spp.png"); 
+    save_image(image, "dielectric_and_sss_white_floor.png"); 
 }

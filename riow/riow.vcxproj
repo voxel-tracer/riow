@@ -152,6 +152,7 @@
     <ClCompile Include="tool\window.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="box.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="color.h" />
     <ClInclude Include="constant_medium.h" />
@@ -164,6 +165,7 @@
     <ClInclude Include="onb.h" />
     <ClInclude Include="pathtracer.h" />
     <ClInclude Include="pdf.h" />
+    <ClInclude Include="plane.h" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="rnd.h" />
     <ClInclude Include="rtweekend.h" />

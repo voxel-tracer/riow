@@ -33,6 +33,7 @@ namespace callback {
     public:
         virtual void operator ()(event_ptr event) {}
         virtual bool terminate() const { return false; }
+        virtual void alterPixelColor(vec3 &clr) const {}
     };
 
     typedef std::shared_ptr<callback> callback_ptr;
@@ -60,7 +61,7 @@ namespace callback {
         CandidateHit(const hit_record& rec) : Event("candidate_hit"), rec(rec) {}
 
         virtual std::ostream& digest(std::ostream& o) const override {
-            return o << "candidate_hit(" << rec.obj_ptr->name << ")";
+            return o << "candidate_hit(" << rec.obj_ptr->name << ", normal = " << rec.normal << ", front_face = " << rec.front_face << ")";
         }
 
         static event_ptr make(const hit_record& rec) { return std::make_shared<CandidateHit>(rec); }
@@ -143,9 +144,17 @@ namespace callback {
 
     class DiffuseScatter : public Scatter {
     public:
-        DiffuseScatter(const vec3& d) : Scatter("diffuse", d) {}
+        DiffuseScatter(const vec3& d, const hit_record& rec) : Scatter("diffuse", d), rec(rec) {}
 
-        static event_ptr make(const vec3& d) { return std::make_shared<DiffuseScatter>(d); }
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "diffuse_scatter(d= " << d << ", dot(d,n)= " << (dot(d, rec.normal)) << ")";
+        }
+
+        static event_ptr make(const vec3& d, const hit_record& rec) { 
+            return std::make_shared<DiffuseScatter>(d, rec); 
+        }
+
+        const hit_record rec;
     };
 
     class MediumScatter : public Scatter {
@@ -356,7 +365,8 @@ namespace callback {
         const bool stopAtFirstFound;
         const std::string target;
 
-        bool found = false;
+        bool foundTarget = false;
+        bool foundBug = false;
         std::shared_ptr<New> n;
         unsigned long count = 0;
 
@@ -367,20 +377,36 @@ namespace callback {
         virtual void operator ()(event_ptr e) override {
             if (auto ne = cast<New>(e)) {
                 n = ne;
-                found = false; // only report/count one per sample
-            } else if (auto h = cast<SurfaceHit>(e)) {
-                if (!found && h->rec.obj_ptr->name == target && !h->rec.front_face) {
-                    ++count;
+                foundTarget = foundBug = false;
+            }
+            else if (auto b = cast<Bounce>(e)) {
+                foundTarget = false;
+            }
+            else if (auto h = cast<SurfaceHit>(e)) {
+                if (!foundTarget && h->rec.obj_ptr->name == target) {
+                    foundTarget = true;
+                }
+            }
+            else if (auto ds = cast<DiffuseScatter>(e)) {
+                if (foundTarget && !foundBug && dot(ds->rec.normal, ds->d) < 0) {
                     if (verbose) {
-                        std::cerr << "\nFound a go through ray at (" << n->x << ", " << n->y << "):" << n->sampleId << std::endl;
+                        std::cout << "\nFound a go through ray at (" << n->x << ", " << n->y << "):" << n->sampleId << std::endl;
                     }
-                    found = true;
+                    foundBug = true;
+                    ++count;
                 }
             }
         }
 
         virtual bool terminate() const override {
-            return stopAtFirstFound && found;
+            return stopAtFirstFound && foundBug;
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+            if (!stopAtFirstFound && foundBug)
+                clr = { 1.0, 1.0, 1.0 };
+            else
+                clr = { 0.0 };
         }
 
         unsigned long getCount() const { return count; }

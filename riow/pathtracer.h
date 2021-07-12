@@ -114,7 +114,6 @@ private:
 
                 if (!rec.mat_ptr->scatter(curRay, rec, srec, rng)) {
                     if (cb) (*cb)(callback::AbsorbedTerminal::make());
-
                     return emitted;
                 }
 
@@ -149,10 +148,17 @@ private:
                 double pdf_val = mat_pdf->value(scattered.direction());
                 if (cb)(*cb)(callback::PdfSample::make(mat_pdf->name(), pdf_val));
 
+                // when sampling lights it is possible to generate scattered rays that go inside the surface
+                // those will be absorbed by the surface
+                if (dot(rec.normal, scattered.direction()) < 0) {
+                    if (cb) (*cb)(callback::AbsorbedTerminal::make());
+                    return emitted;
+                }
+
                 throughput *= srec.attenuation *
                     rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
 
-                if (cb) (*cb)(callback::DiffuseScatter::make(scattered.direction()));
+                if (cb) (*cb)(callback::DiffuseScatter::make(scattered.direction(), rec));
 
                 curRay = scattered;
             }
@@ -179,18 +185,23 @@ private:
         return i + j * image->width;
     }
 
+    unsigned computeSeed(int i, int j) const {
+        return (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
+    }
+
     void initSeeds() {
         for (auto j = 0; j != image->height; ++j) {
             for (auto i = 0; i != image->width; ++i) {
-                seeds[pixelIdx(i, j)] = (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
+                seeds[pixelIdx(i, j)] = computeSeed(i, j);
             }
         }
     }
 
-    color RenderPixel(unsigned i, unsigned j, unsigned spp, callback::callback_ptr cb) {
+    color RenderPixel(unsigned i, unsigned j, unsigned spp, callback::callback_ptr cb, bool force_reset_seed = false) {
         color pixel_color{ 0, 0, 0 };
 
-        auto local_rng = make_shared<xor_rnd>(seeds[pixelIdx(i, j)]);
+        unsigned seed = force_reset_seed ? computeSeed(i, j) : seeds[pixelIdx(i, j)];
+        auto local_rng = make_shared<xor_rnd>(seed);
 
         for (auto s = 0; s != spp; ++s) {
             auto u = (i + local_rng->random_double()) / (image->width - 1);
@@ -203,7 +214,8 @@ private:
             if (cb && cb->terminate()) break;
         }
 
-        seeds[pixelIdx(i, j)] = local_rng->getState();
+        if (!force_reset_seed)
+            seeds[pixelIdx(i, j)] = local_rng->getState();
 
         return pixel_color;
     }
@@ -222,6 +234,8 @@ public:
                 color pixel_color = RenderPixel(i, j, samples_per_pixel, cb);
                 if (cb && cb->terminate()) return;
 
+                // allow callback to change rendered color, useful for debugging
+                if (cb) cb->alterPixelColor(pixel_color);
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
             }
         }
@@ -244,12 +258,12 @@ public:
     }
 
     virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) override {
-        std::cerr << "DebugPixel(" << x << ", " << y << ")\n";
+        std::cerr << "\nDebugPixel(" << x << ", " << y << ")\n";
 
         // to render pixel (x, y)
         auto i = x;
         auto j = (image->height - 1) - y;
-        RenderPixel(i, j, samples_per_pixel, cb);
+        RenderPixel(i, j, samples_per_pixel, cb, true);
     }
 
     virtual unsigned numIterations() const override { return iterations; }
@@ -258,6 +272,7 @@ public:
         double from_x, double from_y, double from_z,
         double at_x, double at_y, double at_z) override {
         cam->update({ from_x, from_y, from_z }, { at_x, at_y, at_z });
+        initSeeds();
         std::fill(rawData.begin(), rawData.end(), color());
         iterations = 0;
     }

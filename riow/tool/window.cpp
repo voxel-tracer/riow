@@ -63,7 +63,7 @@ namespace tool {
         shader = make_unique<Shader>("shaders/scene/vertex.glsl", "shaders/scene/fragment.glsl");
         screen = make_unique<screen_texture>(image);
 
-        //pixel = make_unique<zoom_pixel>(image->width, image->height, 20);
+        pixel = make_unique<zoom_pixel>(image->width, image->height, 20);
 
         // create global transformations
         // ----------------------
@@ -86,7 +86,7 @@ namespace tool {
         glfwTerminate();
     }
 
-    void window::render() {
+    void window::render(int spp) {
         // render loop
         // -----------
         while (!glfwWindowShouldClose(glwindow)) {
@@ -101,12 +101,14 @@ namespace tool {
 
             // render our instances
             if (is2D) {
-                pt->RenderIteration();
-                // glfwSetWindowTitle(glwindow, ("iters: " + pt->numIterations()));
-                std::cerr << "\riteration " << pt->numIterations() << std::flush;
-                screen->updateScreen();
+                isRendering = spp == -1 || pt->numIterations() < spp;
+                if (isRendering) {
+                    pt->RenderIteration();
+                    std::cerr << "\riteration " << pt->numIterations() << std::flush;
+                    screen->updateScreen();
+                }
                 screen->render();
-                if (pixel) pixel->render();
+                if (!isRendering && pixel) pixel->render();
             } else {
                 shader->use();
 
@@ -159,7 +161,7 @@ namespace tool {
     void window::handle_mouse_buttons(int button, int action, int mods) {
         if (is2D) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
-                //debugPixel(mouse_last_x, mouse_last_y);
+                if (!isRendering) debugPixel(mouse_last_x, mouse_last_y);
                 switchTo3D();
             }
         } else {
