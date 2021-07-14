@@ -274,6 +274,28 @@ void simple_box(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, b
 
 }
 
+void glass_panels(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+    // white diffuse floor
+    auto material_ground = make_shared<lambertian>(color(0.8));
+    //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(1.0, 1.0, 1.0));
+    //auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.05);
+    else 
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto tinted_glass = make_shared<dielectric>(1.5, medium);
+
+    for (auto i : yocto::range(5)) {
+        objects->add(make_shared<box>("panel1", point3(0.0, 0.5, 1.0 - i*0.5), vec3(1.0, 1.0, 0.1), tinted_glass));
+    }
+}
+
 void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
     //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     //auto material_ground = make_shared<lambertian>(checker);
@@ -494,7 +516,7 @@ int main()
     bool use_envmap = true;
     bool add_light = false;
 
-    switch (2) {
+    switch (10) {
         case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -568,7 +590,6 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-        default:
         case 9:
             multiple_glass_balls(world, light, add_light);
             lookfrom = point3(3, 2, 2);
@@ -576,6 +597,15 @@ int main()
             vfov = 20.0;
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
+            break;
+        default:
+        case 10:
+            glass_panels(world, false);
+            lookfrom = point3(1.97006, 2.41049, 7.12357);
+            lookat = point3(0, 0.5, 0);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(1.0, 1.0, 1.0);
             break;
     }
 
@@ -607,5 +637,5 @@ int main()
     // offline_render(pt);
     // window_debug(pt, world, cam, image, 265, 359);
 
-    save_image(image, "dielectric_and_sss_white_floor.png"); 
+    save_image(image, "dielectric_and_sss_white_floor_4.png"); 
 }
