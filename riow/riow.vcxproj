@@ -166,6 +166,7 @@
     <ClInclude Include="pathtracer.h" />
     <ClInclude Include="pdf.h" />
     <ClInclude Include="plane.h" />
+    <ClInclude Include="rawdata.h" />
     <ClInclude Include="ray.h" />
     <ClInclude Include="rnd.h" />
     <ClInclude Include="rtweekend.h" />

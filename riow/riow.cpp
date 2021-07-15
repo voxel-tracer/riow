@@ -470,6 +470,14 @@ void offline_render(shared_ptr<tracer> pt) {
          << "Total intersections = " << cb->count << endl;
 }
 
+void offline_parallel_render(shared_ptr<tracer> pt) {
+    clock_t start = clock();
+    pt->RenderParallel();
+    clock_t stop = clock();
+    double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+    cerr << "Rendering took " << timer_seconds << " seconds.\n";
+}
+
 void test_envmap(std::string hdr_filename, std::shared_ptr<EnvMap> envmap) {
     // let's convert envmap to LDR image
     //auto hdr = EnvMap::loadImage("hdrs/christmas_photo_studio_04_1k.hdr");
@@ -499,7 +507,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1;
+    const int samples_per_pixel = 128;
     const int max_depth = 500;
 
     // World
@@ -632,9 +640,24 @@ int main()
 
     // debug_pixel(pt, 2, 0, true);
     // inspect_all(pt, true, true);
-    render(pt, world, cam, image, -1); // pass spp=0 to disable progressive rendering
+    //render(pt, world, cam, image, -1); // pass spp=0 to disable progressive rendering
     // offline_render(pt);
+    offline_parallel_render(pt);
     // window_debug(pt, world, cam, image, 265, 359);
 
-    save_image(image, "glass_ball_white_floor_sss.png"); 
+    //save_image(image, "glass_ball_white_floor_sss.png"); 
+
+    // compare to reference image
+    bool save_ref = false;
+    bool compare_ref = true;
+
+    auto raw = make_shared<RawData>(image->width, image->height);
+    pt->getRawData(raw);
+    if (compare_ref) {
+        auto ref = make_shared<RawData>("reference.raw");
+        std::cerr << "RMSE = " << raw->rmse(ref) << std::endl;
+    }
+    if (save_ref) {
+        raw->saveToFile("reference.raw");
+    }
 }

@@ -243,6 +243,14 @@ public:
         std::cerr << std::endl;
     }
 
+    virtual void RenderParallel() override {
+        yocto::parallel_for(image->width, image->height, [this](unsigned i, unsigned j) {
+            color pixel_color = RenderPixel(i, j, samples_per_pixel, nullptr);
+
+            yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
+        });
+    }
+
     virtual void RenderIteration(callback::callback_ptr cb) override {
         ++iterations;
 
@@ -275,5 +283,14 @@ public:
         initSeeds();
         std::fill(rawData.begin(), rawData.end(), color());
         iterations = 0;
+    }
+
+    virtual void getRawData(shared_ptr<RawData> data) const override {
+        for (auto j : yocto::range(image->height)) {
+            for (auto i : yocto::range(image->width)) {
+                const unsigned idx = i + j * image->width;
+                data->set(i, (image->height - 1) - j, rawData[idx] / samples_per_pixel);
+            }
+        }
     }
 };
