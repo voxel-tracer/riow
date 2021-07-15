@@ -296,25 +296,24 @@ void glass_panels(shared_ptr<hittable_list> objects, bool scattering_medium = fa
     }
 }
 
-void glass_ball(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
-    //auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-    //auto material_ground = make_shared<lambertian>(checker);
-    auto material_ground = make_shared<lambertian>(color(0.4));
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.5, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+void glass_ball(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+    //auto material_ground = make_shared<lambertian>(color(0.8));
+    shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
+    auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
-    //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
-    auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
-    auto glass = make_shared<dielectric>(1.35, ketchup);
-    auto pure_glass = make_shared<dielectric>(1.5);
-    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.1, -1.0), 0.5, pure_glass);
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.05);
+    else
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto tinted_glass = make_shared<dielectric>(1.5, medium);
+    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.0, -1.0), 0.5, tinted_glass);
 
     objects->add(ball);
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(20.0));
-        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light);
-    }
 }
 
 void metal_ball(shared_ptr<hittable_list> objects) {
@@ -516,7 +515,7 @@ int main()
     bool use_envmap = true;
     bool add_light = false;
 
-    switch (10) {
+    switch (5) {
         case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -558,7 +557,7 @@ int main()
             background = color(0.70, 0.80, 1.00);
             break;
         case 5:
-            glass_ball(world, light, add_light);
+            glass_ball(world, true);
             lookfrom = point3(3, 2, 2);
             lookat = point3(0, 0, -1);
             vfov = 20.0;
@@ -637,5 +636,5 @@ int main()
     // offline_render(pt);
     // window_debug(pt, world, cam, image, 265, 359);
 
-    save_image(image, "dielectric_and_sss_white_floor_4.png"); 
+    save_image(image, "glass_ball_white_floor_sss.png"); 
 }
