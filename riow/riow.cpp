@@ -12,6 +12,7 @@
 #include "camera.h"
 #include "material.h"
 #include "pdf.h"
+#include "callbacks.h"
 
 #include <iostream>
 #include <functional>

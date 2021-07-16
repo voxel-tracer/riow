@@ -137,6 +137,9 @@
     <ClInclude Include="rawdata.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="callbacks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="shaders\scene\fragment.glsl">
