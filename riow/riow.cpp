@@ -426,9 +426,11 @@ void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, bool verbose = f
 }
 
 void inspect_all(shared_ptr<tracer> pt, bool verbose = false, bool stopAtFirst = false) {
-    auto cb = std::make_shared<callback::dbg_find_gothrough_diffuse>("floor_plane", verbose, stopAtFirst);
-    pt->Render(cb);
-    cerr << "Found " << cb->getCount() << " buggy samples\n";
+    // auto cb = std::make_shared<callback::dbg_find_gothrough_diffuse>("floor_plane", verbose, stopAtFirst);
+    auto cb = std::make_shared<callback::count_max_depth>();
+    pt->RenderParallel(cb);
+    //cerr << "Found " << cb->getCount() << " buggy samples\n";
+    cerr << "Total paths that terminated with max_depth = " << cb->total() << std::endl;
 }
 
 void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y) {
@@ -507,7 +509,7 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 128;
+    const int samples_per_pixel = 1024;
     const int max_depth = 500;
 
     // World
@@ -639,17 +641,17 @@ int main()
     auto pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
 
     // debug_pixel(pt, 2, 0, true);
-    // inspect_all(pt, true, true);
-    //render(pt, world, cam, image, -1); // pass spp=0 to disable progressive rendering
+    inspect_all(pt, true, true);
+    // render(pt, world, cam, image, -1); // pass spp=0 to disable progressive rendering
     // offline_render(pt);
-    offline_parallel_render(pt);
+    // offline_parallel_render(pt);
     // window_debug(pt, world, cam, image, 265, 359);
 
     //save_image(image, "glass_ball_white_floor_sss.png"); 
 
     // compare to reference image
     bool save_ref = false;
-    bool compare_ref = true;
+    bool compare_ref = false;
 
     auto raw = make_shared<RawData>(image->width, image->height);
     pt->getRawData(raw);
@@ -658,6 +660,7 @@ int main()
         std::cerr << "RMSE = " << raw->rmse(ref) << std::endl;
     }
     if (save_ref) {
-        raw->saveToFile("reference.raw");
+        //TODO I should add a timestamp to the reference name to avoid corrupting a previous one
+        raw->saveToFile("reference-dummy.raw");
     }
 }

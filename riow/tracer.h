@@ -9,8 +9,11 @@
 class tracer {
 public:
     virtual void Render(callback::callback_ptr cb = nullptr) = 0;
-    virtual void RenderParallel() {}
+    virtual void RenderParallel(callback::callback_ptr cb = nullptr) {}
+
     virtual void RenderIteration(callback::callback_ptr cb = nullptr) = 0;
+    virtual void RenderIterationParallel(callback::callback_ptr cb = nullptr) = 0;
+
     virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) = 0;
 
     virtual unsigned numIterations() const = 0;

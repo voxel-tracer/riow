@@ -103,7 +103,7 @@ namespace tool {
             if (is2D) {
                 isRendering = spp == -1 || pt->numIterations() < spp;
                 if (isRendering) {
-                    pt->RenderIteration();
+                    pt->RenderIterationParallel();
                     std::cerr << "\riteration " << pt->numIterations() << std::flush;
                     screen->updateScreen();
                 }

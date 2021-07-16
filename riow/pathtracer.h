@@ -243,9 +243,9 @@ public:
         std::cerr << std::endl;
     }
 
-    virtual void RenderParallel() override {
-        yocto::parallel_for(image->width, image->height, [this](unsigned i, unsigned j) {
-            color pixel_color = RenderPixel(i, j, samples_per_pixel, nullptr);
+    virtual void RenderParallel(callback::callback_ptr cb) override {
+        yocto::parallel_for(image->width, image->height, [&](unsigned i, unsigned j) {
+            color pixel_color = RenderPixel(i, j, samples_per_pixel, cb);
 
             yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
         });
@@ -263,6 +263,17 @@ public:
                 yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], iterations));
             }
         }
+    }
+
+    virtual void RenderIterationParallel(callback::callback_ptr cb) override {
+        ++iterations;
+
+        yocto::parallel_for(image->width, image->height, [&](unsigned i, unsigned j) {
+            const unsigned idx = i + j * image->width;
+            rawData[idx] += RenderPixel(i, j, 1, cb);
+
+            yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], iterations));
+        });
     }
 
     virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) override {

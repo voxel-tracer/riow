@@ -3,6 +3,7 @@
 #include <string>
 #include <memory>
 #include <sstream>
+#include <atomic>
 
 #include "rtweekend.h"
 #include "hit_record.h"
@@ -353,6 +354,20 @@ namespace callback {
                 }
             }
         }
+    };
+
+    class count_max_depth : public callback {
+    private:
+        std::atomic_ulong cnt;
+
+    public:
+        virtual void operator ()(std::shared_ptr<Event> e) override {
+            if (auto t = cast<MaxDepthTerminal>(e)) {
+                cnt++;
+            }
+        }
+
+        unsigned long total() const { return cnt; }
     };
 
     /*
