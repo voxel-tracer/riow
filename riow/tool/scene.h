@@ -77,11 +77,14 @@ namespace tool {
         // this is a bit weird as this class expects a specific implementation of shader that allows setting a model
         // transform for each shape
         void render(Shader& shader) {
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
             for (const auto& instance : instances) {
                 shader.setMat4("model", instance.model);
                 shader.setVec3("color", glm::vec3(1.0, 0.5, 0.5));
                 shapes[instance.shape]->render();
             }
+            glDisable(GL_BLEND);
         }
     };
 

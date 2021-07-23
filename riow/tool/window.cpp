@@ -1,15 +1,9 @@
 #include "window.h"
 #include "../callbacks.h"
+#include "widgets.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
     glViewport(0, 0, width, height);
-}
-
-void processInput(GLFWwindow* window) {
-    tool::window* w = (tool::window*)glfwGetWindowUserPointer(window);
-    if (w) {
-        w->handle_input();
-    }
 }
 
 void mouse_callback(GLFWwindow* window, double xPos, double yPos) {
@@ -38,7 +32,11 @@ namespace tool {
             pt(tr), cam(camera{ static_cast<float>(image->width) / image->height, look_at, look_from }) {
         // glfw: initialize and configure
         // ------------------------------
-        glfwInit();
+        if (!glfwInit()) {
+            throw exception("Failed to initialize glfw");
+        }
+
+        const char* glsl_version = "#330";
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -51,6 +49,7 @@ namespace tool {
             throw exception("Failed to create GLFW window");
         }
         glfwMakeContextCurrent(glwindow);
+        glfwSwapInterval(1); // enable vsync
         glfwSetWindowUserPointer(glwindow, this);
         glfwSetFramebufferSizeCallback(glwindow, framebuffer_size_callback);
 
@@ -59,6 +58,8 @@ namespace tool {
         if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
             throw exception("Failed to initialize GLAD");
         }
+
+        imGuiManager = make_unique<ImGuiManager>(glwindow, glsl_version);
 
         // initialize shader
         shader = make_unique<Shader>("shaders/scene/vertex.glsl", "shaders/scene/fragment.glsl");
@@ -82,6 +83,8 @@ namespace tool {
     }
 
     window::~window() {
+        imGuiManager.release();
+
         // glfw: terminate, clearing all previously allocated GLFW resources
         // -----------------------------------------------------------------
         glfwTerminate();
@@ -93,7 +96,7 @@ namespace tool {
         while (!glfwWindowShouldClose(glwindow)) {
             // input
             // -----
-            processInput(glwindow);
+            handleInput();
 
             // render
             // ------
@@ -102,10 +105,10 @@ namespace tool {
 
             // render our instances
             if (is2D) {
-                isRendering = spp == -1 || pt->numIterations() < spp;
+                isRendering = spp == -1 || pt->numSamples() < spp;
                 if (isRendering) {
-                    pt->RenderIterationParallel();
-                    std::cerr << "\riteration " << pt->numIterations() << std::flush;
+                    pt->RenderParallel(1);
+                    std::cerr << "\riteration " << pt->numSamples() << std::flush;
                     screen->updateScreen();
                 }
                 screen->render();
@@ -119,6 +122,8 @@ namespace tool {
                 if (scene) scene->render(*shader);
                 if (ls) ls->render(cam);
             }
+
+            imGuiManager->render();
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
@@ -147,6 +152,8 @@ namespace tool {
     }
 
     void window::handle_mouse_move(double xPos, double yPos) {
+        if (imGuiManager->wantCaptureMouse()) return;
+
         if (is2D) {
             if (pixel) {
                 pixel->set_position(xPos, yPos);
@@ -160,9 +167,12 @@ namespace tool {
     }
 
     void window::handle_mouse_buttons(int button, int action, int mods) {
+        if (imGuiManager->wantCaptureMouse()) return;
+
         if (is2D) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
-                if (!isRendering) debugPixel(mouse_last_x, mouse_last_y);
+                // TODO make debug spp configurable in UI
+                if (!isRendering) debugPixel(mouse_last_x, mouse_last_y, 128);
                 switchTo3D();
             }
         } else {
@@ -170,10 +180,10 @@ namespace tool {
         }
     }
 
-    void window::debugPixel(unsigned x, unsigned y) {
+    void window::debugPixel(unsigned x, unsigned y, unsigned spp) {
         // generate render paths
-        shared_ptr<callback::build_segments_cb> cb = std::make_shared<callback::build_segments_cb>();
-        pt->DebugPixel(x, y, cb);
+        auto cb = std::make_shared<callback::draw_medium_scatters>();
+        pt->DebugPixel(x, y, spp, cb);
 
         if (ls) ls.reset();
         ls = make_unique<lines>(cb->segments);
@@ -182,12 +192,16 @@ namespace tool {
     }
 
     void window::handle_mouse_scroll(double xoffset, double yoffset) {
+        if (imGuiManager->wantCaptureMouse()) return;
+
         if (!is2D) {
             cam.handle_mouse_scroll(xoffset, yoffset);
         }
     }
 
-    void window::handle_input() {
+    void window::handleInput() {
+        if (imGuiManager->wantCaptureKeyboard()) return;
+
         bool is_esc_pressed = glfwGetKey(glwindow, GLFW_KEY_ESCAPE) == GLFW_PRESS;
 
         if (is2D) {
@@ -199,6 +213,15 @@ namespace tool {
         }
 
         esc_pressed = is_esc_pressed;
+    }
+
+    void window::showHisto(std::string title, std::vector<float> data) {
+        auto w = make_shared<HistoWidget>(title, data);
+        imGuiManager->addWidget(w);
+    }
+
+    void window::updateCamera(glm::vec3 look_from, glm::vec3 look_at) {
+        cam.update(look_from, look_at);
     }
 }
 

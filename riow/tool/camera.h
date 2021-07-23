@@ -33,9 +33,14 @@ namespace tool {
     public:
         camera(float ar, glm::vec3 look_at = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 look_from = glm::vec3(0.0f, 0.0f, -3.0f)) :
             aspect_ratio(ar), look_at(look_at) {
+            update(look_from, look_at);
+        }
+
+        void update(glm::vec3 from, glm::vec3 at) {
+            look_from = from;
+            look_at = at;
             dist_to_look_at = glm::length(look_from - look_at);
             compute_rotations(look_from);
-
             update_camera_vectors();
         }
 

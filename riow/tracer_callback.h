@@ -98,6 +98,23 @@ namespace callback {
         const vec3 p; // hit point
     };
 
+    class Transmitted : public Event {
+    public:
+        Transmitted(double distance, const color& transmission) :
+            Event("transmitted"), distance(distance), transmission(transmission) {}
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "transmitted(dist = " << distance << ", transmission = " << transmission << ")";
+        }
+
+        static event_ptr make(double distance, const color& transmission) {
+            return make_shared<Transmitted>(distance, transmission);
+        }
+
+        const double distance;
+        const color transmission;
+    };
+
     class MediumHit : public Hit {
     public:
         MediumHit(const vec3& p, double d, double rt) : Hit("medium", p), distance(d), rec_t(rt) {}

@@ -1,7 +1,9 @@
 #pragma once
 
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include "tool.h"
+
+#include "imguiManager.h"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -16,7 +18,7 @@
 #include "../tracer.h"
 
 namespace tool {
-    class window {
+    class window : public window_base {
     private:
         bool is2D;
         bool esc_pressed = false;
@@ -27,6 +29,7 @@ namespace tool {
         GLFWwindow* glwindow;
 
         unique_ptr<Shader> shader;
+        unique_ptr<ImGuiManager> imGuiManager;
 
         std::shared_ptr<scene> scene;
 
@@ -46,11 +49,15 @@ namespace tool {
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }
 
-        void render(int spp = -1);
+        virtual void render(int spp = -1) override;
 
-        void debugPixel(unsigned x, unsigned y);
+        virtual void debugPixel(unsigned x, unsigned y, unsigned spp) override;
 
-        void handle_input();
+        virtual void showHisto(std::string title, std::vector<float> data) override;
+
+        virtual void updateCamera(glm::vec3 look_from, glm::vec3 look_at) override;
+
+        void handleInput();
         void handle_mouse_move(double xPos, double yPos);
         void handle_mouse_buttons(int button, int action, int mods);
         void handle_mouse_scroll(double xoffset, double yoffset);

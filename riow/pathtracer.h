@@ -26,13 +26,14 @@ struct scene_desc {
 class pathtracer: public tracer {
 private:
     const shared_ptr<camera> cam;
+    // TODO move HDR->LDR conversion to RawData and let caller use getRawData()
     shared_ptr<yocto::color_image> image;
     const scene_desc scene;
-    const unsigned samples_per_pixel;
     const unsigned max_depth;
     const unsigned rroulette_depth;
 
-    unsigned iterations = 0;
+    unsigned samples = 0;
+    //TODO use RawData instead
     std::vector<color> rawData;
     std::vector<unsigned> seeds;
 
@@ -75,9 +76,10 @@ private:
             if (medium) {
                 // check if there is an internal scattering
                 double distance = medium->sampleDistance(rng, rec.t);
-                throughput *= medium->transmission(distance);
+                color transmission = medium->transmission(distance);
+                throughput *= transmission;
 
-                // TODO introduce an event that describes medium transmission
+                if (cb) (*cb)(callback::Transmitted::make(distance, transmission));
 
                 if ((distance + epsilon) < rec.t) {
                     ray scattered = ray(
@@ -221,86 +223,79 @@ private:
     }
 
 public:
-    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned spp, unsigned md, unsigned rrd)
-        : cam(c), image(im), scene(sc), samples_per_pixel(spp), max_depth(md), rroulette_depth(rrd),
+    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned md, unsigned rrd)
+        : cam(c), image(im), scene(sc), max_depth(md), rroulette_depth(rrd),
         rawData(im->width * im->height, color()), seeds(im->width * im->height, 0) {
         initSeeds();
     }
 
-    virtual void Render(callback::callback_ptr cb) override {
+    virtual void Render(unsigned spp, callback::callback_ptr cb) override {
+        samples += spp; // needed to properly average the samples
+
         for (auto j = image->height - 1; j >= 0; --j) {
+            // TODO implement a callback that tracks progress
             std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
-                color pixel_color = RenderPixel(i, j, samples_per_pixel, cb);
+                const unsigned idx = i + j * image->width;
+
+                color clr = RenderPixel(i, j, spp, cb);
+                if (cb) cb->alterPixelColor(clr);
+                rawData[idx] += clr;
+
                 if (cb && cb->terminate()) return;
 
-                // allow callback to change rendered color, useful for debugging
-                if (cb) cb->alterPixelColor(pixel_color);
-                yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
+                //TODO I should keep the raw colors and only convert to LDR when returning the image
+                yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], samples));
             }
         }
 
         std::cerr << std::endl;
     }
 
-    virtual void RenderParallel(callback::callback_ptr cb) override {
-        yocto::parallel_for(image->width, image->height, [&](unsigned i, unsigned j) {
-            color pixel_color = RenderPixel(i, j, samples_per_pixel, cb);
-
-            yocto::set_pixel(*image, i, (image->height - 1) - j, convert(pixel_color, samples_per_pixel));
-        });
-    }
-
-    virtual void RenderIteration(callback::callback_ptr cb) override {
-        ++iterations;
-
-        for (auto j = 0; j != image->height; ++j) {
-            for (auto i = 0; i != image->width; ++i) {
-                const unsigned idx = i + j * image->width;
-                rawData[idx] += RenderPixel(i, j, 1, cb);
-                if (cb && cb->terminate()) return;
-
-                yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], iterations));
-            }
-        }
-    }
-
-    virtual void RenderIterationParallel(callback::callback_ptr cb) override {
-        ++iterations;
-
+    virtual void RenderParallel(unsigned spp, callback::callback_ptr cb) override {
+        samples += spp;
         yocto::parallel_for(image->width, image->height, [&](unsigned i, unsigned j) {
             const unsigned idx = i + j * image->width;
-            rawData[idx] += RenderPixel(i, j, 1, cb);
 
-            yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], iterations));
+            color clr = RenderPixel(i, j, spp, cb);
+            if (cb) cb->alterPixelColor(clr);
+            rawData[idx] += clr;
+
+            if (cb && cb->terminate()) return;
+
+            yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], samples));
         });
     }
 
-    virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) override {
+    virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback_ptr cb) override {
         std::cerr << "\nDebugPixel(" << x << ", " << y << ")\n";
 
         // to render pixel (x, y)
         auto i = x;
         auto j = (image->height - 1) - y;
-        RenderPixel(i, j, samples_per_pixel, cb, true);
+        RenderPixel(i, j, spp, cb, true);
     }
 
-    virtual unsigned numIterations() const override { return iterations; }
+    virtual unsigned numSamples() const override { return samples; }
 
     virtual void updateCamera(
         double from_x, double from_y, double from_z,
         double at_x, double at_y, double at_z) override {
         cam->update({ from_x, from_y, from_z }, { at_x, at_y, at_z });
+        Reset();
+    }
+
+    virtual void Reset() override {
         initSeeds();
         std::fill(rawData.begin(), rawData.end(), color());
-        iterations = 0;
+        samples = 0;
     }
 
     virtual void getRawData(shared_ptr<RawData> data) const override {
         for (auto j : yocto::range(image->height)) {
             for (auto i : yocto::range(image->width)) {
                 const unsigned idx = i + j * image->width;
-                data->set(i, (image->height - 1) - j, rawData[idx] / samples_per_pixel);
+                data->set(i, (image->height - 1) - j, rawData[idx] / samples);
             }
         }
     }

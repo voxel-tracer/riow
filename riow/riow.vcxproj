@@ -147,8 +147,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_demo.cpp" />
+    <ClCompile Include="imgui\imgui_draw.cpp" />
+    <ClCompile Include="imgui\imgui_impl_glfw.cpp" />
+    <ClCompile Include="imgui\imgui_impl_opengl3.cpp" />
+    <ClCompile Include="imgui\imgui_tables.cpp" />
+    <ClCompile Include="imgui\imgui_widgets.cpp" />
     <ClCompile Include="riow.cpp" />
     <ClCompile Include="tool\glad.c" />
+    <ClCompile Include="tool\imGuiManager.cpp" />
+    <ClCompile Include="tool\tool.cpp" />
     <ClCompile Include="tool\window.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -161,6 +170,14 @@
     <ClInclude Include="hittable.h" />
     <ClInclude Include="hittable_list.h" />
     <ClInclude Include="hit_record.h" />
+    <ClInclude Include="imgui\imconfig.h" />
+    <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_impl_glfw.h" />
+    <ClInclude Include="imgui\imgui_impl_opengl3.h" />
+    <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\imstb_rectpack.h" />
+    <ClInclude Include="imgui\imstb_textedit.h" />
+    <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="material.h" />
     <ClInclude Include="medium.h" />
     <ClInclude Include="onb.h" />
@@ -176,11 +193,14 @@
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="texture.h" />
     <ClInclude Include="tool\camera.h" />
+    <ClInclude Include="tool\imguiManager.h" />
     <ClInclude Include="tool\lines.h" />
     <ClInclude Include="tool\scene.h" />
     <ClInclude Include="tool\screen_texture.h" />
     <ClInclude Include="tool\shader.h" />
+    <ClInclude Include="tool\tool.h" />
     <ClInclude Include="tool\tracer_data.h" />
+    <ClInclude Include="tool\widgets.h" />
     <ClInclude Include="tool\window.h" />
     <ClInclude Include="tool\zoom_pixel.h" />
     <ClInclude Include="tracer.h" />

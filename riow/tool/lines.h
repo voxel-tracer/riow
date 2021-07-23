@@ -66,8 +66,13 @@ namespace tool {
             shader->setMat4("projection", cam.get_projection_matrix());
             shader->setMat4("view", cam.get_view_matrix());
 
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_BLEND);
+
             glBindVertexArray(VAO); // seeing as we only have a single VAO there's no need to bind it every time, but we'll do so to keep things a bit more organized
             glDrawArrays(GL_LINES, 0, numverts);
+
+            glDisable(GL_BLEND);
         }
 
     };

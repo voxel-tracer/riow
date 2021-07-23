@@ -22,7 +22,7 @@
 #include <yocto/yocto_sceneio.h>
 
 #include "pathtracer.h"
-#include "tool/window.h"
+#include "tool/tool.h"
 
 using namespace std;
 
@@ -353,8 +353,8 @@ void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hit
     objects->add(make_shared<sphere>("right_ball_outer", point3(1.0, 0.0, -1.0), 0.5, material_right));
 }
 
-shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
-    auto scene = yocto::scene_model{};
+shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
+    auto scene = make_shared<yocto::scene_model>();
     {
         // sphere shape
         {
@@ -363,7 +363,7 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
             auto quads = yocto::vector<yocto::vec4i>{};
             yocto::make_sphere(quads, shape.positions, shape.normals, shape.texcoords, 8, 1, 1);
             shape.triangles = quads_to_triangles(quads);
-            scene.shapes.push_back(shape);
+            scene->shapes.push_back(shape);
         }
         // box shape
         {
@@ -372,9 +372,9 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
             auto quads = yocto::vector<yocto::vec4i>{};
             yocto::make_cube(quads, shape.positions, shape.normals, shape.texcoords, 1);
             shape.triangles = quads_to_triangles(quads);
-            scene.shapes.push_back(shape);
+            scene->shapes.push_back(shape);
         }
-        scene.materials.push_back({}); // create a black material directly
+        scene->materials.push_back({}); // create a black material directly
 
         for (auto o : world->objects) {
             // only supports spheres for now and constant_medium that uses sphere as a boundary
@@ -390,7 +390,7 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
                 instance.frame =
                     yocto::translation_frame({ (float)s->center[0], (float)s->center[1], (float)s->center[2] }) *
                     yocto::scaling_frame({ (float)s->radius, (float)s->radius, (float)s->radius });
-                scene.instances.push_back(instance);
+                scene->instances.push_back(instance);
             }
             else if (auto b = dynamic_pointer_cast<box>(o)) {
                 auto bcenter = (b->bmax + b->bmin) / 2;
@@ -402,15 +402,15 @@ shared_ptr<tool::scene> init_scene(shared_ptr<hittable_list> world) {
                 instance.frame =
                     yocto::translation_frame({ (float)bcenter[0], (float)bcenter[1], (float)bcenter[2] }) *
                     yocto::scaling_frame({ (float)bsize[0], (float)bsize[1], (float)bsize[2] });
-                scene.instances.push_back(instance);
+                scene->instances.push_back(instance);
             }
         }
     }
 
-    auto stats = yocto::scene_stats(scene);
+    auto stats = yocto::scene_stats(*scene);
     for (auto stat : stats) cerr << stat << endl;
 
-    return make_shared<tool::scene>(scene);
+    return scene;
 }
 
 void save_image(shared_ptr<yocto::color_image> image, string filename) {
@@ -421,65 +421,86 @@ void save_image(shared_ptr<yocto::color_image> image, string filename) {
     }
 }
 
-void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, bool verbose = false) {
+void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, unsigned spp, bool verbose = false) {
     auto cb = std::make_shared<callback::print_callback>(verbose);
-    pt->DebugPixel(x, y, cb);
+    pt->DebugPixel(x, y, spp, cb);
 }
 
-void inspect_all(shared_ptr<tracer> pt, bool verbose = false, bool stopAtFirst = false) {
-    // auto cb = std::make_shared<callback::dbg_find_gothrough_diffuse>("floor_plane", verbose, stopAtFirst);
-    auto cb = std::make_shared<callback::count_max_depth>();
-    pt->RenderParallel(cb);
-    //cerr << "Found " << cb->getCount() << " buggy samples\n";
-    cerr << "Total paths that terminated with max_depth = " << cb->total() << std::endl;
+void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, bool stopAtFirst = false) {
+    auto cb = std::make_shared<callback::num_medium_scatter_stats>();
+    pt->Render(spp, cb);
+    cb->digest(cerr) << std::endl;
 }
 
-void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y) {
+void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y, unsigned spp) {
     // now display a window
     vec3 lookat = cam->getLookAt();
     vec3 lookfrom = cam->getLookFrom();
 
-    tool::window w{
-        image, pt,
-        glm::vec3(lookat[0], lookat[1], lookat[2]), // look_at
-        glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2])  // look_from
-    };
-    w.set_scene(init_scene(world));
-    w.debugPixel(x, y);
-    w.render();
+    auto s = init_scene(world);
+    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+    auto w = tool::create_window(image, pt, s, at, from);
+
+    w->debugPixel(x, y, spp);
+    w->render();
 }
 
 void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, int spp) {
     vec3 lookat = cam->getLookAt();
     vec3 lookfrom = cam->getLookFrom();
 
-    tool::window w{
-        image, pt,
-        glm::vec3(lookat[0], lookat[1], lookat[2]), // look_at
-        glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2])  // look_from
-    };
-    w.set_scene(init_scene(world));
+    auto s = init_scene(world);
+    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+    auto w = tool::create_window(image, pt, s, at, from);
 
-    w.render(spp);
+    w->render(spp);
 }
 
-void offline_render(shared_ptr<tracer> pt) {
+void offline_render(shared_ptr<tracer> pt, unsigned spp) {
     clock_t start = clock();
     auto cb = std::make_shared<callback::num_inters_callback>();
-    pt->Render(cb);
+    pt->Render(spp, cb);
     clock_t stop = clock();
     double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
     cerr << "Rendering took " << timer_seconds << " seconds.\n" 
          << "Total intersections = " << cb->count << endl;
 }
 
-void offline_parallel_render(shared_ptr<tracer> pt) {
+void offline_parallel_render(shared_ptr<tracer> pt, unsigned spp) {
     clock_t start = clock();
-    pt->RenderParallel();
+    pt->RenderParallel(spp);
     clock_t stop = clock();
     double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
     cerr << "Rendering took " << timer_seconds << " seconds.\n";
 }
+
+void debug_sss(
+        shared_ptr<tracer> pt, 
+        shared_ptr<hittable_list> world, 
+        shared_ptr<camera> cam, 
+        shared_ptr<yocto::color_image> image) {
+    // render the scene offline while collecting the histogram
+    // auto cb = make_shared<callback::num_medium_scatter_histo>(10, 20);
+    std::shared_ptr<callback::callback> cb{};
+    pt->Render(1, cb);
+
+    vec3 lookat = cam->getLookAt();
+    vec3 lookfrom = cam->getLookFrom();
+
+    auto s = init_scene(world);
+    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+    auto w = tool::create_window(image, pt, s, at, from);
+
+    // quick test
+    //w->showHisto("histogram", cb->getNormalizedBins());
+    w->debugPixel(226, 262, 1024);
+    w->updateCamera( glm::vec3{ -2.27297f, 0.15248f, 1.23364f }, at );
+    w->render(0);
+}
+
 
 void test_envmap(std::string hdr_filename, std::shared_ptr<EnvMap> envmap) {
     // let's convert envmap to LDR image
@@ -510,7 +531,6 @@ int main()
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = 500;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int samples_per_pixel = 1024;
     const int max_depth = 500;
 
     // World
@@ -639,14 +659,15 @@ int main()
         light,
         envmap
     };
-    auto pt = make_shared<pathtracer>(cam, image, scene, samples_per_pixel, max_depth, 3);
+    auto pt = make_shared<pathtracer>(cam, image, scene, max_depth, 3);
 
     // debug_pixel(pt, 2, 0, true);
-    inspect_all(pt, true, true);
-    // render(pt, world, cam, image, -1); // pass spp=0 to disable progressive rendering
+    // inspect_all(pt, 1024);
+    render(pt, world, cam, image, -1); // pass spp=0 to disable further rendering in the window
     // offline_render(pt);
     // offline_parallel_render(pt);
     // window_debug(pt, world, cam, image, 265, 359);
+    //debug_sss(pt, world, cam, image);
 
     //save_image(image, "glass_ball_white_floor_sss.png"); 
 

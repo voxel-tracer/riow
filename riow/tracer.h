@@ -8,17 +8,17 @@
 
 class tracer {
 public:
-    virtual void Render(callback::callback_ptr cb = nullptr) = 0;
-    virtual void RenderParallel(callback::callback_ptr cb = nullptr) {}
+    // TODO add a parallel flag instead of a separate method
+    virtual void Render(unsigned spp, callback::callback_ptr cb = nullptr) = 0;
+    virtual void RenderParallel(unsigned spp, callback::callback_ptr cb = nullptr) {}
 
-    virtual void RenderIteration(callback::callback_ptr cb = nullptr) = 0;
-    virtual void RenderIterationParallel(callback::callback_ptr cb = nullptr) = 0;
+    virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback_ptr cb) = 0;
 
-    virtual void DebugPixel(unsigned x, unsigned y, callback::callback_ptr cb) = 0;
-
-    virtual unsigned numIterations() const = 0;
+    virtual unsigned numSamples() const = 0;
     virtual void updateCamera(double from_x, double from_y, double from_z,
         double at_x, double at_y, double at_z) = 0;
+    // keep camera as is but resets rendering back to iteration 0
+    virtual void Reset() = 0;
 
     virtual void getRawData(shared_ptr<RawData> data) const = 0;
 };

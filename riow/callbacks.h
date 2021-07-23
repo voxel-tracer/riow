@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <iostream>
+#include <limits>
 
 #include "tracer_callback.h"
 
@@ -56,7 +57,56 @@ namespace callback {
             }
             else if (auto nh = cast<NoHitTerminal>(e)) {
                 // generate a segment that point towards the general direction of the scattered ray
-                segments.push_back({ toYocto(p), toYocto(p + d), toYocto(color(0, 0, 0)) });
+                segments.push_back({ toYocto(p), toYocto(p + d), toYocto(c) });
+            }
+        }
+
+        std::vector<tool::path_segment> segments;
+    };
+
+    /*
+    * draws all paths that scatter inside the medium
+    * only draws the first time the rays enters a medium, once it exits it won't draw it 
+    * again if it re-enters
+    */
+    class draw_medium_scatters : public callback {
+    private:
+        bool found = false; // current sample is or was in a medium
+        bool inside = false; // current sample is in a medium
+        vec3 p;
+        color c{ 1.0 };
+
+        void add(vec3 n) {
+            segments.push_back({ toYocto(p), toYocto(n), toYocto(c) });
+            p = n;
+        }
+    public:
+        virtual void operator ()(std::shared_ptr<Event> e) override {
+            if (auto n = cast<New>(e)) {
+                found = inside = false;
+                c = { 1.0 };
+            }
+            if (auto t = cast<Transmitted>(e)) {
+                if (inside) {
+                    c *= max(t->transmission);
+                }
+            }
+            else if (auto s = cast<SpecularScatter>(e)) {
+                if (s->is_refracted) { // ray traversed the surface
+                    // only track the first entry/exit
+                    if (!found) {
+                        found = inside = true;
+                    }
+                    else if (inside)
+                        inside = false;
+                }
+            }
+            else if (auto h = cast<SurfaceHit>(e)) {
+                if (inside) add(h->p);
+                else p = h->p;
+            }
+            else if (auto m = cast<MediumHit>(e)) {
+                if (inside) add(m->p);
             }
         }
 
@@ -143,6 +193,8 @@ namespace callback {
         std::atomic_ulong cnt;
 
     public:
+        count_max_depth() : callback(true) {}
+
         virtual void operator ()(std::shared_ptr<Event> e) override {
             if (cast<MaxDepthTerminal>(e)) {
                 cnt++;
@@ -209,4 +261,200 @@ namespace callback {
         unsigned long getCount() const { return count; }
     };
 
+    // compute histogram for values in the range [0, maxVal]
+    class transmitted_dist_histo : public callback {
+    private:
+        double dist = 0.0; // current sample transmitted distance
+        bool found = false; // did current sample traverse medium ?
+        unsigned total = 0;
+
+        const double maxVal;
+        const int numBins;
+        std::vector<unsigned> bins;
+
+        void add(double d) {
+            int binIdx = (d / maxVal) * numBins;
+            if (binIdx >= numBins) binIdx = numBins - 1;
+            bins[binIdx]++;
+
+            total++;
+        }
+
+    public:
+        transmitted_dist_histo(int numBins, double maxVal) : 
+            numBins(numBins), maxVal(maxVal), bins(numBins, 0) {}
+
+        virtual void operator ()(event_ptr e) override {
+            if (cast<New>(e)) {
+                dist = 0.0;
+                found = false;
+            }
+            else if (auto t = cast<Transmitted>(e)) {
+                found = true;
+                dist += t->distance;
+            }
+            else if (cast<Terminal>(e)) {
+                if (found) {
+                    add(dist);
+                }
+            }
+        }
+
+        std::vector<float> getNormalizedBins() const {
+            std::vector<float> out;
+            out.reserve(numBins);
+
+            //std::cerr << "histo: total = " << total << std::endl;
+            //float t = 0.0f;
+            for (auto b : bins) {
+                float f = (float)b / total;
+                out.push_back(f);
+                //std::cerr << b << ", " << f << std::endl;
+                //t += f;
+            }
+            //std::cerr << "total = " << t << std::endl;
+            return out;
+        }
+    };
+
+    class average_transmitted_dist : public callback {
+    private:
+        double dist = 0.0; // current sample transmitted distance
+        bool found = false; // did current sample traverse medium ?
+
+        double min_dist = std::numeric_limits<double>::max();
+        double max_dist = 0.0;
+
+        double total_dist = 0.0;
+        unsigned long count;
+
+        void add(double d) {
+            if (d < min_dist) min_dist = d;
+            if (d > max_dist) max_dist = d;
+            total_dist += d;
+            count++;
+        }
+
+    public:
+        virtual void operator ()(event_ptr e) override {
+            if (cast<New>(e)) {
+                dist = 0.0;
+                found = false;
+            }
+            else if (auto t = cast<Transmitted>(e)) {
+                found = true;
+                dist += t->distance;
+            }
+            else if (cast<Terminal>(e)) {
+                if (found) {
+                    add(dist);
+                }
+            }
+        }
+
+        std::ostream& digest(std::ostream& o) const {
+            return o << "average transmitted dist = " << (total_dist / count) <<
+                "\nfor a total of " << count << " samples" <<
+                "\n[" << min_dist << ", " << max_dist << "]";
+        }
+    };
+
+    class num_medium_scatter_stats : public callback {
+    private:
+        bool inMedium = false; // did current sample enter a medium ?
+        long scatterCount = 0; // how many times did the sample scatter inside a medium ?
+
+        long minScatterCount = std::numeric_limits<long>::max();
+        long maxScatterCount = 0;
+        long totalScatterCount = 0;
+        long numSamples = 0; // how many samples entered a medium ?
+
+        void add(long count) {
+            totalScatterCount += count;
+            if (count < minScatterCount) minScatterCount = count;
+            if (count > maxScatterCount) maxScatterCount = count;
+        }
+
+    public:
+        virtual void operator ()(event_ptr e) override {
+            if (cast<New>(e)) {
+                inMedium = false;
+                scatterCount = 0;
+            }
+            else if (auto t = cast<Transmitted>(e)) {
+                if (!inMedium) {
+                    // just entered the medium
+                    inMedium = true;
+                    numSamples++;
+                }
+            }
+            else if (cast<MediumScatter>(e)) {
+                scatterCount++;
+            }
+            else if (cast<Terminal>(e)) {
+                if (inMedium) add(scatterCount);
+            }
+        }
+
+        std::ostream& digest(std::ostream& o) const {
+            return o << "average scatter count = " << (totalScatterCount / numSamples) <<
+                "\nfor a total of " << numSamples << " samples" <<
+                "\n[" << minScatterCount << ", " << maxScatterCount << "]";
+        }
+    };
+
+    class num_medium_scatter_histo : public callback {
+    private:
+        bool inMedium = false; // did current sample enter a medium ?
+        long scatterCount = 0; // how many times did the sample scatter inside a medium ?
+
+        long numSamples = 0; // how many samples entered a medium ?
+
+        const long maxVal;
+        const int numBins;
+        std::vector<unsigned> bins;
+
+        void add(long count) {
+            int binIdx = ((double)count / maxVal) * numBins;
+            if (binIdx >= numBins) binIdx = numBins - 1;
+            bins[binIdx]++;
+
+            numSamples++;
+        }
+
+    public:
+        num_medium_scatter_histo(int numBins, long maxVal) :
+            numBins(numBins), maxVal(maxVal), bins(numBins, 0) {}
+
+        virtual void operator ()(event_ptr e) override {
+            if (cast<New>(e)) {
+                inMedium = false;
+                scatterCount = 0;
+            }
+            else if (auto t = cast<Transmitted>(e)) {
+                if (!inMedium) {
+                    // just entered the medium
+                    inMedium = true;
+                    numSamples++;
+                }
+            }
+            else if (cast<MediumScatter>(e)) {
+                scatterCount++;
+            }
+            else if (cast<Terminal>(e)) {
+                if (inMedium) add(scatterCount);
+            }
+        }
+
+        std::vector<float> getNormalizedBins() const {
+            std::vector<float> out;
+            out.reserve(numBins);
+
+            for (auto b : bins) {
+                float f = (float)b / numSamples;
+                out.push_back(f);
+            }
+            return out;
+        }
+    };
 }
