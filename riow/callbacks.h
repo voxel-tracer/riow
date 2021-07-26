@@ -18,11 +18,6 @@ namespace callback {
         unsigned count = 0;
     };
 
-
-    inline yocto::vec3f toYocto(const vec3& v) {
-        return { (float)v[0], (float)v[1], (float)v[2] };
-    }
-
     class build_segments_cb : public callback {
     private:
         vec3 p;

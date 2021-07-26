@@ -13,6 +13,7 @@
 #include "material.h"
 #include "pdf.h"
 #include "callbacks.h"
+#include "model.h"
 
 #include <iostream>
 #include <functional>
@@ -317,6 +318,27 @@ void glass_ball(shared_ptr<hittable_list> objects, bool scattering_medium = fals
     objects->add(ball);
 }
 
+void monkey_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+    auto material_ground = make_shared<lambertian>(color(0.75));
+    //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
+    //auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.05, 0.05);
+    else
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto tinted_glass = make_shared<dielectric>(1.5, medium);
+
+    // auto simple = make_shared<dielectric>(1.5);
+    // auto simple = make_shared<metal>(color(.8, .2, .2));
+    objects->add(make_shared<model>("models/suzanne-subdiv.obj", point3(0.0, -0.5, -0.5), tinted_glass, 4, 5.0f));
+}
+
 void metal_ball(shared_ptr<hittable_list> objects) {
     auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
@@ -381,7 +403,7 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
             if (auto cm = dynamic_pointer_cast<constant_medium>(o)) {
                 o = cm->boundary;
             }
-            if (auto s = dynamic_pointer_cast<sphere>(o)) {
+            else if (auto s = dynamic_pointer_cast<sphere>(o)) {
                 if (s->radius > 99.0) continue; // ignore floor sphere
 
                 auto instance = yocto::scene_instance{};
@@ -404,11 +426,17 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
                     yocto::scaling_frame({ (float)bsize[0], (float)bsize[1], (float)bsize[2] });
                 scene->instances.push_back(instance);
             }
+            else if (auto m = dynamic_pointer_cast<model>(o)) {
+                scene->shapes.push_back(m->scene.shapes[0]);
+                auto instance = m->scene.instances[0];
+                instance.shape = scene->shapes.size() - 1;
+                scene->instances.push_back(instance);
+            }
         }
     }
 
-    auto stats = yocto::scene_stats(*scene);
-    for (auto stat : stats) cerr << stat << endl;
+    //auto stats = yocto::scene_stats(*scene);
+    //for (auto stat : stats) cerr << stat << endl;
 
     return scene;
 }
@@ -546,7 +574,7 @@ int main()
     bool use_envmap = true;
     bool add_light = false;
 
-    switch (5) {
+    switch (10) {
         case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -628,8 +656,16 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-        default:
         case 10:
+            monkey_scene(world, true);
+            lookfrom = point3(1.10758, 1.01684, 1.96513);
+            lookat = point3(0, 0, -0.5);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.6, 0.6, 0.7);
+            break;
+        default:
+        case 11:
             glass_panels(world, false);
             lookfrom = point3(1.97006, 2.41049, 7.12357);
             lookat = point3(0, 0.5, 0);
@@ -669,7 +705,7 @@ int main()
     // window_debug(pt, world, cam, image, 265, 359);
     //debug_sss(pt, world, cam, image);
 
-    //save_image(image, "glass_ball_white_floor_sss.png"); 
+    save_image(image, "glass_suzanne_subdiv_sss3.png"); 
 
     // compare to reference image
     bool save_ref = false;

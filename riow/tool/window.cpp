@@ -182,7 +182,7 @@ namespace tool {
 
     void window::debugPixel(unsigned x, unsigned y, unsigned spp) {
         // generate render paths
-        auto cb = std::make_shared<callback::draw_medium_scatters>();
+        auto cb = std::make_shared<callback::build_segments_cb>();
         pt->DebugPixel(x, y, spp, cb);
 
         if (ls) ls.reset();

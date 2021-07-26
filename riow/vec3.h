@@ -3,6 +3,8 @@
 #include <cmath>
 #include <ostream>
 
+#include <yocto/yocto_geometry.h>
+
 class vec3 {
 public:
     vec3() :e{ 0, 0, 0 } { }
@@ -136,4 +138,12 @@ inline vec3 refract(const vec3& uv, const vec3& n, double etai_over_etat) {
     double sqlen = r_out_perp.length_squared();
     vec3 r_out_parallel = sqlen >= 1.0f ? vec3(0, 0, 0) : -std::sqrt(1.0f - sqlen) * n;
     return r_out_perp + r_out_parallel;
+}
+
+inline yocto::vec3f toYocto(const vec3& v) {
+    return { (float)v[0], (float)v[1], (float)v[2] };
+}
+
+inline vec3 fromYocto(const yocto::vec3f& v) {
+    return vec3(v.x, v.y, v.z);
 }
