@@ -150,15 +150,15 @@ private:
                 double pdf_val = mat_pdf->value(scattered.direction());
                 if (cb)(*cb)(callback::PdfSample::make(mat_pdf->name(), pdf_val));
 
+                double scattering_pdf = rec.mat_ptr->scattering_pdf(curRay, rec, scattered);
                 // when sampling lights it is possible to generate scattered rays that go inside the surface
                 // those will be absorbed by the surface
-                if (dot(rec.normal, scattered.direction()) < 0) {
+                if (scattering_pdf <= 0.0) {
                     if (cb) (*cb)(callback::AbsorbedTerminal::make());
                     return emitted;
                 }
 
-                throughput *= srec.attenuation *
-                    rec.mat_ptr->scattering_pdf(curRay, rec, scattered) / pdf_val;
+                throughput *= srec.attenuation * scattering_pdf / pdf_val;
 
                 if (cb) (*cb)(callback::DiffuseScatter::make(scattered.direction(), rec));
 

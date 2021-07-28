@@ -133,8 +133,7 @@ void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, 
     {
         // white diffuse scattering with red subsurface scattering
         auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        color clr = { 1.0, 1.0, 1.0 };
-        auto diffuse = make_shared<diffuse_subsurface_scattering>(0.5, clr, medium);
+        auto diffuse = make_shared<diffuse_subsurface_scattering>(clr, medium);
 
         objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.0, -1.0), 0.5, diffuse));
     }
@@ -201,8 +200,7 @@ void diffuse_and_sss(shared_ptr<hittable_list> objects, shared_ptr<hittable> lig
     {
         // white diffuse scattering with red subsurface scattering
         auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        color clr = { 1.0, 1.0, 1.0 };
-        auto diffuse = make_shared<diffuse_subsurface_scattering>(0.5, clr, medium);
+        auto diffuse = make_shared<diffuse_subsurface_scattering>(clr, medium);
 
         objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.0, -1.0), 0.5, diffuse));
     }
@@ -255,8 +253,9 @@ void simple_box(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, b
     }
     case 4: {
         // white diffuse scattering with red subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 0.005, 0.5);
-        mat = make_shared<diffuse_subsurface_scattering>(0.5, color(1.0), medium);
+        color clr(.98, .0061, .0033);
+        auto medium = make_shared<IsotropicScatteringMedium>(clr, 0.005, 0.5);
+        mat = make_shared<diffuse_subsurface_scattering>(clr, medium);
         break;
     }
     case 5: {
@@ -319,9 +318,9 @@ void glass_ball(shared_ptr<hittable_list> objects, bool scattering_medium = fals
 }
 
 void monkey_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
-    auto material_ground = make_shared<lambertian>(color(0.75));
-    //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
-    //auto material_ground = make_shared<lambertian>(checker);
+    //auto material_ground = make_shared<lambertian>(color(0.75));
+    shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
+    auto material_ground = make_shared<lambertian>(checker);
     objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
@@ -329,14 +328,43 @@ void monkey_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fa
 
     shared_ptr<Medium> medium{};
     if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.05, 0.05);
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.05, 0.025);
     else
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
 
-    // auto simple = make_shared<dielectric>(1.5);
-    // auto simple = make_shared<metal>(color(.8, .2, .2));
-    objects->add(make_shared<model>("models/suzanne-subdiv.obj", point3(0.0, -0.5, -0.5), tinted_glass, 4, 5.0f));
+    auto monkey = make_shared<model>("models/suzanne-subdiv.obj", tinted_glass, 4, true);
+    monkey->scene.instances[0].frame = 
+        yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5))) *
+        yocto::scaling_frame({ 5.0f, 5.0f, 5.0f });
+    monkey->buildBvh();
+    objects->add(monkey);
+}
+
+void monk_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+    //auto material_ground = make_shared<lambertian>(color(0.75));
+    shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
+    auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.05, 0.025);
+    else
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto monk_mat = make_shared<dielectric>(1.5, medium);
+    //auto monk_mat = make_shared<diffuse_subsurface_scattering>(glass_color, medium);
+    //auto monk_mat = make_shared<lambertian>(glass_color);
+
+    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", monk_mat, 0);
+    monk->scene.instances[0].frame = yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5)))
+        * yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2)
+        * yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
+    monk->buildBvh();
+    objects->add(monk);
 }
 
 void metal_ball(shared_ptr<hittable_list> objects) {
@@ -574,7 +602,7 @@ int main()
     bool use_envmap = true;
     bool add_light = false;
 
-    switch (10) {
+    switch (11) {
         case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -657,15 +685,23 @@ int main()
             background = color(0.6, 0.6, 0.7);
             break;
         case 10:
-            monkey_scene(world, true);
+            monkey_scene(world, false);
             lookfrom = point3(1.10758, 1.01684, 1.96513);
             lookat = point3(0, 0, -0.5);
             vfov = 20.0;
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-        default:
         case 11:
+            monk_scene(world, true);
+            lookfrom = point3(-8.49824, 3.01965, -2.37236);
+            lookat = point3(0, 0.75, -0.75);
+            vfov = 20.0;
+            aperture = 0.1;
+            background = color(0.6, 0.6, 0.7);
+            break;
+        default:
+        case 12:
             glass_panels(world, false);
             lookfrom = point3(1.97006, 2.41049, 7.12357);
             lookat = point3(0, 0.5, 0);
@@ -705,7 +741,7 @@ int main()
     // window_debug(pt, world, cam, image, 265, 359);
     //debug_sss(pt, world, cam, image);
 
-    save_image(image, "glass_suzanne_subdiv_sss3.png"); 
+    //save_image(image, "monk_diffuse.png"); 
 
     // compare to reference image
     bool save_ref = false;

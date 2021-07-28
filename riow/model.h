@@ -17,7 +17,7 @@
 
 class model : public hittable {
 public:
-    model(std::string filename, const point3& center, std::shared_ptr<material> mat, int subdiv_lvl = 0, float scale = 1.0f) :
+    model(std::string filename, std::shared_ptr<material> mat, int subdivisions = 0, bool catmullclark = true) :
             hittable(filename + "_model"), mat_ptr(mat) {
         auto error = std::string{};
         auto shape = yocto::scene_shape{};
@@ -25,14 +25,12 @@ public:
             throw std::runtime_error(error);
         }
 
-        if (subdiv_lvl > 0) {
-            auto [squads, spositions] = yocto::subdivide_catmullclark(shape.quads, shape.positions, subdiv_lvl);
-            shape.triangles = yocto::quads_to_triangles(squads);
-            shape.positions = spositions;
+        if (subdivisions > 0) {
+            shape = yocto::subdivide_shape(shape, subdivisions, catmullclark);
         }
-        else {
+
+        if (!shape.quads.empty())
             shape.triangles = yocto::quads_to_triangles(shape.quads);
-        }
         shape.quads.clear();
 
         scene.shapes.push_back(shape);
@@ -41,13 +39,13 @@ public:
         auto instance = yocto::scene_instance{};
         instance.shape = 0;
         instance.material = 0;
-        instance.frame = yocto::translation_frame(toYocto(center))
-            * yocto::scaling_frame({ scale, scale, scale });
         scene.instances.push_back(instance);
 
         auto stats = yocto::scene_stats(scene);
         for (auto stat : stats) std::cerr << stat << std::endl;
+    }
 
+    void buildBvh() {
         bvh = yocto::make_bvh(scene, true);
     }
 

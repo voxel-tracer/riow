@@ -145,24 +145,26 @@ public:
     shared_ptr<texture> albedo;
 };
 
-class diffuse_subsurface_scattering : public lambertian {
+class diffuse_subsurface_scattering : public material {
 public:
-    diffuse_subsurface_scattering(double w, const color& c, shared_ptr<Medium> m) :
-        lambertian(c), weight(w), medium(m) {}
+    diffuse_subsurface_scattering(color a, shared_ptr<Medium> m) : albedo(a), medium(m) {}
 
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         if (rec.front_face) {
-            // ray coming from outside the model
-            if (rng->random_double() < weight) {
-                // ray is entering the medium
-                srec.is_specular = true;
+            // ray hit surface of the material from the outside
+            // scatter ray on a sphere
+            srec.specular_ray = ray(rec.p, rng->random_in_unit_sphere());
+            srec.is_specular = true;
+            if (dot(rec.normal, srec.specular_ray.direction()) < 0) {
+                // ray entered the medium
                 srec.is_refracted = true;
                 srec.medium_ptr = medium;
-                srec.specular_ray = ray(rec.p, in.direction());
-                return true;
-            } else {
-                // lambertian scattering
-                return lambertian::scatter(in, rec, srec, rng);
+            }
+            else {
+                // ray scattered at the surface
+                srec.is_refracted = false;
+                srec.medium_ptr = nullptr;
+                srec.attenuation = albedo;
             }
         } else {
             // ray is exiting the medium
@@ -173,6 +175,6 @@ public:
         }
     }
 
-    double weight; // how much of the scattered rays are lambertian
+    color albedo;
     shared_ptr<Medium> medium;
 };
