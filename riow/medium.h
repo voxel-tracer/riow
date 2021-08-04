@@ -16,6 +16,14 @@ public:
     virtual color transmission(double distance) const = 0;
 };
 
+// medium that does nothing
+class InvisibleMedium : public Medium {
+public:
+    virtual color transmission(double distance) const override {
+        return { 1.0, 1.0, 1.0 };
+    }
+};
+
 class NoScatterMedium : public Medium {
 public:
     NoScatterMedium(color c, double d) : aColor(c), aDistance(d) {}

@@ -7,6 +7,10 @@
 
 class tracer;
 
+namespace callback {
+    class callback;
+}
+
 namespace tool {
     class window_base {
     public:
@@ -16,6 +20,8 @@ namespace tool {
         virtual void showHisto(std::string title, std::vector<float> data) = 0;
 
         virtual void updateCamera(glm::vec3 look_from, glm::vec3 look_at) = 0;
+
+        virtual void setCallback(std::shared_ptr<callback::callback> cb) = 0;
     };
 
     std::shared_ptr<window_base> create_window(

@@ -38,6 +38,7 @@ namespace tool {
         unique_ptr<lines> ls = NULL;
 
         shared_ptr<tracer> pt;
+        shared_ptr<callback::callback> cb;
         bool isRendering = false;
 
         void switchTo3D(bool force);
@@ -48,6 +49,8 @@ namespace tool {
         ~window();
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }
+
+        virtual void setCallback(shared_ptr<callback::callback> c) override { cb = c; }
 
         virtual void render(int spp = -1) override;
 

@@ -26,16 +26,15 @@ private:
 
 class checker_texture : public texture {
 public:
-    checker_texture() {}
 
-    checker_texture(shared_ptr<texture> even, shared_ptr<texture> odd)
-        : odd(odd), even(even) {}
+    checker_texture(shared_ptr<texture> even, shared_ptr<texture> odd, double frequency = 10)
+        : odd(odd), even(even), frequency(frequency) {}
 
-    checker_texture(color c1, color c2)
-        :even(make_shared<solid_color>(c1)), odd(make_shared<solid_color>(c2)) {}
+    checker_texture(color c1, color c2, double frequency = 10)
+        :even(make_shared<solid_color>(c1)), odd(make_shared<solid_color>(c2)), frequency(frequency) {}
 
     virtual color value(double u, double v, const point3& p) const override {
-        auto sines = sin(10 * p.x()) * sin(10 * p.y()) * sin(10 * p.z());
+        auto sines = sin(frequency * p.x()) * sin(frequency * p.y()) * sin(frequency * p.z());
         if (sines < 0)
             return odd->value(u, v, p);
         else
@@ -43,8 +42,9 @@ public:
     }
 
 public:
-    shared_ptr<texture> odd;
-    shared_ptr<texture> even;
+    const shared_ptr<texture> odd;
+    const shared_ptr<texture> even;
+    const double frequency;
 };
 
 class image_texture: public texture {

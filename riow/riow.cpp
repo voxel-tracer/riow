@@ -317,28 +317,93 @@ void glass_ball(shared_ptr<hittable_list> objects, bool scattering_medium = fals
     objects->add(ball);
 }
 
+void monkey_debug(shared_ptr<hittable_list> objects) {
+    // no floor
+    // passthrough material
+    auto m = make_shared<passthrough>();
+    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", m, 0);
+    monkey->buildBvh();
+    objects->add(monkey);
+}
+
 void monkey_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
-    //auto material_ground = make_shared<lambertian>(color(0.75));
-    shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
-    auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    auto material_ground = make_shared<lambertian>(color(0.1));
+    //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
+    //auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<plane>("floor", point3(0.0, -1.005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
 
     shared_ptr<Medium> medium{};
     if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.05, 0.025);
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
     else
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
 
-    auto monkey = make_shared<model>("models/suzanne-subdiv.obj", tinted_glass, 4, true);
-    monkey->scene.instances[0].frame = 
-        yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5))) *
-        yocto::scaling_frame({ 5.0f, 5.0f, 5.0f });
+    //auto m = make_shared<metal>(color(0.97, 0.96, 0.91));
+    auto m = make_shared<lambertian>(color(glass_color));
+    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", tinted_glass, 0);
     monkey->buildBvh();
     objects->add(monkey);
+}
+
+void dragon_debug(shared_ptr<hittable_list> objects) {
+    // no floor
+
+    // passthrough material
+    //auto m = make_shared<passthrough>();
+
+    // complex material
+    bool scattering_medium = true;
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
+    else
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto m = make_shared<dielectric>(1.5, medium);
+
+    auto dragon = make_shared<model>("models/dragon_remeshed.ply", m, 0);
+    dragon->scene.instances[0].frame =
+        yocto::translation_frame({ -0.5f, 0.0f, 0.0f }) *
+        yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(180.0f)) *
+        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-35.0f)) *
+        yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
+        yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
+    dragon->buildBvh();
+    objects->add(dragon);
+}
+
+void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+    auto material_ground = make_shared<lambertian>(color(1.0));
+    //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
+    //auto material_ground = make_shared<lambertian>(checker);
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.4005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
+    else
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto tinted_glass = make_shared<dielectric>(1.5, medium);
+
+    //auto m = make_shared<metal>(color(0.97, 0.96, 0.91));
+    auto m = make_shared<lambertian>(color(glass_color));
+    auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, 0);
+    dragon->scene.instances[0].frame =
+        yocto::translation_frame({ -0.5f, 0.0f, 0.0f }) *
+        yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(180.0f)) *
+        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-35.0f)) *
+        yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
+        yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
+    dragon->buildBvh();
+    objects->add(dragon);
 }
 
 void monk_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
@@ -360,6 +425,30 @@ void monk_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fals
     //auto monk_mat = make_shared<lambertian>(glass_color);
 
     auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", monk_mat, 0);
+    monk->scene.instances[0].frame = yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5)))
+        * yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2)
+        * yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
+    monk->buildBvh();
+    objects->add(monk);
+}
+
+void monk_debug(shared_ptr<hittable_list> objects) {
+    // no floor
+    // passthrough material
+    //auto m = make_shared<passthrough>();
+
+    // complex material
+    bool scattering_medium = false;
+    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
+    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
+    shared_ptr<Medium> medium{};
+    if (scattering_medium)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
+    else
+        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+    auto m = make_shared<dielectric>(1.5, medium);
+
+    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", m, 0);
     monk->scene.instances[0].frame = yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5)))
         * yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2)
         * yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
@@ -483,7 +572,9 @@ void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, unsigned spp, bo
 }
 
 void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, bool stopAtFirst = false) {
-    auto cb = std::make_shared<callback::num_medium_scatter_stats>();
+    //auto cb = std::make_shared<callback::validate_model>("models/LuYu-obj/LuYu-obj.obj_model");
+    auto cb = std::make_shared<callback::validate_model>("models/dragon_remeshed.ply_model", stopAtFirst);
+    //auto cb = std::make_shared<callback::highlight_element>(1);
     pt->Render(spp, cb);
     cb->digest(cerr) << std::endl;
 }
@@ -510,6 +601,8 @@ void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<c
     auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
     auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
     auto w = tool::create_window(image, pt, s, at, from);
+
+    //w->setCallback(std::make_shared<callback::validate_model>("models/dragon_remeshed.ply_model"));
 
     w->render(spp);
 }
@@ -601,8 +694,9 @@ int main()
     color background { 0, 0, 0 };
     bool use_envmap = true;
     bool add_light = false;
+    bool russian_roulette = true;
 
-    switch (11) {
+    switch (16) {
         case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -685,9 +779,9 @@ int main()
             background = color(0.6, 0.6, 0.7);
             break;
         case 10:
-            monkey_scene(world, false);
-            lookfrom = point3(1.10758, 1.01684, 1.96513);
-            lookat = point3(0, 0, -0.5);
+            monkey_scene(world, true);
+            lookfrom = point3(2.95012, 3.84593, 6.67006);
+            lookat = point3(0, 0.05, 0);
             vfov = 20.0;
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
@@ -700,7 +794,6 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-        default:
         case 12:
             glass_panels(world, false);
             lookfrom = point3(1.97006, 2.41049, 7.12357);
@@ -708,6 +801,44 @@ int main()
             vfov = 20.0;
             aperture = 0.1;
             background = color(1.0, 1.0, 1.0);
+            break;
+        case 13:
+            monkey_debug(world);
+            lookfrom = point3(2.95012, 3.84593, 6.67006);
+            lookat = point3(0, 0.05, 0);
+            vfov = 20.0;
+            aperture = 0.0;
+            background = color(1.0, 1.0, 1.0);
+            use_envmap = false;
+            russian_roulette = false;
+            break;
+        case 14:
+            monk_debug(world);
+            lookfrom = point3(-8.49824, 3.01965, -2.37236);
+            lookat = point3(0, 0.75, -0.75);
+            vfov = 20.0;
+            aperture = 0.0;
+            background = color(1.0, 1.0, 1.0);
+            use_envmap = false;
+            russian_roulette = false;
+            break;
+        case 15:
+            dragon_scene(world, true);
+            lookfrom = point3(-4.35952, 2.64187, 4.06531);
+            lookat = point3(0, 0.05, 0);
+            vfov = 20.0;
+            aperture = 0.0;
+            background = color(0.6, 0.6, 0.7);
+            break;
+        case 16:
+            dragon_debug(world);
+            lookfrom = point3(-4.35952, 2.64187, 4.06531);
+            lookat = point3(0, 0.05, 0);
+            vfov = 20.0;
+            aperture = 0.0;
+            background = color(1.0, 1.0, 1.0);
+            use_envmap = false;
+            russian_roulette = false;
             break;
     }
 
@@ -719,8 +850,10 @@ int main()
 
     shared_ptr<EnvMap> envmap = nullptr;
     if (use_envmap) {
-        auto hdr_filename = "hdrs/christmas_photo_studio_04_1k.hdr";
+        //auto hdr_filename = "hdrs/christmas_photo_studio_04_1k.hdr";
+        auto hdr_filename = "hdrs/christmas_photo_studio_04_4k.exr";
         //auto hdr_filename = "hdrs/parched_canal_1k.exr";
+        //auto hdr_filename = "hdrs/large_corridor_4k.exr";
         envmap = make_shared<EnvMap>(hdr_filename);
     }
 
@@ -731,17 +864,20 @@ int main()
         light,
         envmap
     };
-    auto pt = make_shared<pathtracer>(cam, image, scene, max_depth, 3);
+    unsigned rr_depth = russian_roulette ? 3 : max_depth;
+    auto pt = make_shared<pathtracer>(cam, image, scene, max_depth, rr_depth);
+    if (!russian_roulette)
+        std::cerr << "RUSSIAN ROULETTE DISABLED\n";
 
-    // debug_pixel(pt, 2, 0, true);
-    // inspect_all(pt, 1024);
-    render(pt, world, cam, image, -1); // pass spp=0 to disable further rendering in the window
+    //debug_pixel(pt, 277, 97, 1, true);
+    inspect_all(pt, 1, false, false);
+    render(pt, world, cam, image, 0); // pass spp=0 to disable further rendering in the window
     // offline_render(pt);
     // offline_parallel_render(pt);
-    // window_debug(pt, world, cam, image, 265, 359);
+    //window_debug(pt, world, cam, image, 277, 97, 1);
     //debug_sss(pt, world, cam, image);
 
-    //save_image(image, "monk_diffuse.png"); 
+    //save_image(image, "output/dragon-dbg.png"); 
 
     // compare to reference image
     bool save_ref = false;

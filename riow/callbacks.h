@@ -7,6 +7,286 @@
 #include "tracer_callback.h"
 
 namespace callback {
+    class validate_model : public callback {
+    private:
+        const std::string target{};
+        const bool stopAtFirstBug;
+
+        std::shared_ptr<SurfaceHit> hit;
+        std::shared_ptr<New> currentSample;
+        std::shared_ptr<New> lastBuggySample;
+
+        bool inside = false; // true if ray entered the target
+        bool foundBadFront = false; // true if front face hit inside target
+        bool foundBadBack  = false; // true if back face hit outside target
+        bool targetHit = false; // true if current sample hit target
+        bool mediumSkip = false; // true if current medium transmittance was skipped
+                                 // this means a bad front hit was properly handled
+
+        long numFoundBugs = 0; // total number of samples with bugs
+
+    public:
+        validate_model(std::string target, bool stopAtFirstBug = false) :
+            target(target), stopAtFirstBug(stopAtFirstBug) {}
+
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            if (auto n = cast<New>(event)) {
+                currentSample   = n;
+                inside          = false;
+                foundBadBack    = false;
+                foundBadFront   = false;
+                targetHit       = false;
+                mediumSkip      = false;
+            }
+            else if (auto h = cast<SurfaceHit>(event)) {
+                if (h->rec.obj_ptr->name == target) {
+                    targetHit = true;
+                    hit = h;
+                }
+            }
+            else if (cast<MediumSkip>(event)) {
+                mediumSkip = true;
+            }
+            else if (auto s = cast<SpecularScatter>(event)) {
+                if (s->is_refracted) {
+                    if (inside) {
+                        if (hit->rec.front_face) {
+                            if (mediumSkip) // we can ignore this case as it was properly handled
+                                mediumSkip = false; // reset this flag as it only fixes one bad front hit
+                            else
+                                foundBadFront = true;
+                        }
+                        else
+                            inside = false;
+                    }
+                    else {
+                        if (hit->rec.front_face)
+                            inside = true;
+                        else
+                            foundBadBack = true;
+                    }
+                }
+            }
+            else if (cast<Terminal>(event)) {
+                if (foundBadBack || foundBadFront) {
+                    numFoundBugs++;
+                    lastBuggySample = currentSample;
+                }
+            }
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+
+            if (targetHit) {
+                if (foundBadBack)
+                    clr = { 1.0, 0.5, 0.5 };
+                else if (foundBadFront)
+                    clr = { 0.5, 0.5, 1.0 };
+                else
+                    clr = { 0.5, 1.0, 0.5 };
+            }
+        }
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            o << "found " << numFoundBugs << " buggy samples";
+            if (stopAtFirstBug)
+                o << ", at(" << lastBuggySample->x << ", " << lastBuggySample->y << ") at sample: " << lastBuggySample->sampleId;
+            return o;
+        }
+
+        virtual bool terminate() const override { 
+            return stopAtFirstBug && numFoundBugs > 0; 
+        }
+
+    };
+
+    class multi : public callback {
+    private:
+        std::vector<shared_ptr<callback>> all{};
+
+    public:
+        void add(shared_ptr<callback> cb) { all.push_back(cb); }
+
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            for (auto cb : all) (*cb)(event);
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+            for (auto cb : all) cb->alterPixelColor(clr);
+        }
+    };
+
+    class normals_falsecolor : public callback {
+    private:
+        bool found = false; // true if we found first intersection normal
+        vec3 dir; // current ray direction
+        color falsecolor;
+
+    public:
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            if (auto n = cast<New>(event)) {
+                found = false;
+                dir = n->r.direction();
+            }
+            else if (auto hit = cast<CandidateHit>(event)) {
+                if (!found) {
+                    found = true;
+                    // compute geometry normal (account for normals flipped when hit from back)
+                    auto normal = hit->rec.normal;
+                    if (!hit->rec.front_face)
+                        normal = -normal;
+                    // compute dot product. from back (-1) to front (+1)
+                    auto t = dot(-normal, dir);
+                    // normalize t from [0,1]
+                    t = (t + 1) / 2;
+                    // color ranges from red (back) to green (front)
+                    falsecolor = (1 - t) * color(1.0, 0.0, 0.0) + t * color(0.0, 1.0, 0.0);
+                }
+            }
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+            if (found)
+                clr = falsecolor;
+        }
+    };
+
+    class highlight_element : public callback {
+    private:
+        bool found = false;
+
+    public:
+        highlight_element(int element, color c = { 1.0, 0.0, 0.0 }) : element(element), c(c) {}
+
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            if (cast<New>(event)) {
+                found = false;
+            }
+            else if (auto hit = cast<CandidateHit>(event)) {
+                if (hit->rec.element == element)
+                    found = true;
+            }
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+            if (found)
+                clr = c;
+        }
+
+        const int element;
+        const color c;
+    };
+
+    // a buggy specular sample intersects a target model an odd number of times
+    // this should only happen if the sample was terminated prematurly (max depth or russian roulette)
+    // as such only account for samples that terminate with a NoHitTerminal
+    class buggy_specular : public callback {
+    private:
+        const std::string target;
+        const bool colorize;
+
+        unsigned count = 0;
+        bool foundBug = false; // true if bug found in current sample
+        long numFoundBugs = 0; // total number of samples with bug
+        bool hitTarget = false; // true if current bounce hit target
+
+    public:
+        buggy_specular(std::string target, bool colorize) : target(target), colorize(colorize) {}
+
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            if (cast<New>(event)) {
+                count = 0;
+                foundBug = false;
+            }
+            else if (cast<Bounce>(event)) {
+                hitTarget = false;
+            }
+            else if (cast<NoHitTerminal>(event)) {
+                if (count % 2) {
+                    foundBug = true;
+                    numFoundBugs++;
+                }
+            }
+            else if (auto h = cast<CandidateHit>(event)) {
+                if (h->rec.obj_ptr->name == target) {
+                    hitTarget = true;
+                }
+            }
+            else if (auto ss = cast<SpecularScatter>(event)) {
+                if (hitTarget) {
+                    if (ss->is_refracted) count++;
+                }
+            }
+        }
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "found " << numFoundBugs << " self-intersected samples";
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+            if (colorize) {
+                if (foundBug)
+                    clr = { 1.0, 0.0, 0.0 };
+                else
+                    clr *= 0.1;
+            }
+        }
+    };
+
+    class self_intersection : public callback {
+    private:
+        const std::string target;
+        const double threshold;
+        const bool colorize;
+
+        unsigned numHits = 0; // how many times current sample hit any object
+        bool hitTarget = false; // true if current sample hit target object before any other object
+        bool foundBug = false; // true if current sample self intersected
+
+        long numBugsFound = 0;
+
+    public:
+        self_intersection(std::string target, double threshold, bool colorize) : 
+            target(target), threshold(threshold), colorize(colorize) {}
+
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            if (cast<New>(event)) {
+                numHits = 0;
+                hitTarget = false;
+                foundBug = false;
+            }
+            else if (auto h = cast<CandidateHit>(event)) {
+                if (numHits == 0) {
+                    if (h->rec.obj_ptr->name == target)
+                        hitTarget = true;
+                }
+                else if (numHits == 1 && hitTarget) {
+                    if (h->rec.t < threshold)
+                        foundBug = true;
+                }
+
+                numHits = true;
+            }
+            else if (cast<Terminal>(event)) {
+                if (foundBug) numBugsFound++;
+            }
+        }
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "found " << numBugsFound << " self-intersected samples";
+        }
+
+        virtual void alterPixelColor(vec3& clr) const override {
+            if (colorize) {
+                if (foundBug)
+                    clr = { 1.0, 0.0, 0.0 };
+                else
+                    clr *= 0.1;
+            }
+        }
+
+    };
+
     class num_inters_callback : public callback {
     public:
         virtual void operator ()(std::shared_ptr<Event> event) override {

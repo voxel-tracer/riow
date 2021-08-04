@@ -13,6 +13,7 @@ struct hit_record {
     double t;
     double u;
     double v;
+    int element = -1;
     bool front_face;
     std::shared_ptr<hittable> obj_ptr;
 

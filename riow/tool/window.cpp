@@ -107,7 +107,10 @@ namespace tool {
             if (is2D) {
                 isRendering = spp == -1 || pt->numSamples() < spp;
                 if (isRendering) {
-                    pt->RenderParallel(1);
+                    if (cb)
+                        pt->Render(1, cb);
+                    else
+                        pt->RenderParallel(1);
                     std::cerr << "\riteration " << pt->numSamples() << std::flush;
                     screen->updateScreen();
                 }
@@ -172,7 +175,8 @@ namespace tool {
         if (is2D) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 // TODO make debug spp configurable in UI
-                if (!isRendering) debugPixel(mouse_last_x, mouse_last_y, 128);
+                unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
+                if (!isRendering) debugPixel(mouse_last_x, mouse_last_y, spp);
                 switchTo3D();
             }
         } else {
@@ -187,6 +191,11 @@ namespace tool {
 
         if (ls) ls.reset();
         ls = make_unique<lines>(cb->segments);
+
+        {
+            auto pcb = std::make_shared<callback::print_callback>(true);
+            pt->DebugPixel(x, y, spp, pcb);
+        }
 
         switchTo3D();
     }

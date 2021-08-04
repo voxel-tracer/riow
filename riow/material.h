@@ -32,6 +32,27 @@ public:
     }
 };
 
+/*
+ incoming ray scatters through the material in the same direction
+ incoming ray attenuation changes according to which side of the surface it hit:
+ . 20% of red channel for front hits
+ . 20% of blue channel for back hits
+*/
+class passthrough : public material {
+private:
+    std::shared_ptr<Medium> medium = std::make_shared<InvisibleMedium>();
+
+public:
+    virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
+        srec.specular_ray = { rec.p, in.direction() };
+        srec.is_specular = true;
+        srec.is_refracted = true;
+        srec.medium_ptr = medium;
+        srec.attenuation = rec.front_face ? color(.5, 1.0, 1.0) : color(1.0, 1.0, .5);
+        return true;
+    }
+};
+
 class lambertian : public material {
 public:
     lambertian(const color& a) : albedo(make_shared<solid_color>(a)) {}
@@ -71,7 +92,9 @@ public:
 
 class dielectric: public material {
 public:
-    dielectric(double index_of_refraction, shared_ptr<Medium> m = {}) : ir(index_of_refraction), medium(m) {}
+    dielectric(double index_of_refraction, shared_ptr<Medium> m = {}) : ir(index_of_refraction) {
+        medium = m ? m : std::make_shared<InvisibleMedium>();
+    }
 
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, shared_ptr<rnd> rng) const override {
         srec.is_specular = true;

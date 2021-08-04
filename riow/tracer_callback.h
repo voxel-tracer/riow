@@ -38,6 +38,10 @@ namespace callback {
         virtual bool terminate() const { return false; }
         virtual void alterPixelColor(vec3 &clr) const {}
 
+        virtual std::ostream& digest(std::ostream& o) const {
+            return o << "";
+        }
+
         const bool threadsafe;
     };
 
@@ -66,12 +70,40 @@ namespace callback {
         CandidateHit(const hit_record& rec) : Event("candidate_hit"), rec(rec) {}
 
         virtual std::ostream& digest(std::ostream& o) const override {
-            return o << "candidate_hit(" << rec.obj_ptr->name << ", normal = " << rec.normal << ", front_face = " << rec.front_face << ")";
+            o << "candidate_hit(" << rec.obj_ptr->name;
+            if (rec.element != -1)
+                o << ", element = " << rec.element;
+            return o << ", t = " << rec.t << ", normal = " << rec.normal << ", front_face = " << rec.front_face << ")";
         }
 
         static event_ptr make(const hit_record& rec) { return std::make_shared<CandidateHit>(rec); }
 
         const hit_record rec;
+    };
+
+    class Skip : public Event {
+    public:
+        Skip(std::string name) : Event(name + "_skip") {}
+    };
+
+    class HitSkip : public Skip {
+    public:
+        HitSkip(bool front_face) : Skip("hit"), front_face(front_face) {}
+
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "hit_skip(front_face = " << front_face << ")";
+        }
+
+        static event_ptr make(bool front_face) { return std::make_shared<HitSkip>(front_face); }
+
+        const bool front_face;
+    };
+
+    class MediumSkip : public Skip {
+    public:
+        MediumSkip() : Skip("medium") {}
+
+        static event_ptr make() { return std::make_shared<MediumSkip>(); }
     };
 
     class Bounce: public Event {

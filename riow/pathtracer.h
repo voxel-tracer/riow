@@ -42,9 +42,10 @@ private:
 
         color throughput = { 1, 1, 1 };
         color emitted = { 0, 0, 0 };
+        ray curRay = r;
+
         shared_ptr<Medium> medium = {};
         shared_ptr<hittable> medium_obj = {};
-        ray curRay = r;
 
         for (auto depth = 0; depth < max_depth; ++depth) {
             if (cb && cb->terminate()) break;
@@ -53,17 +54,18 @@ private:
             hit_record rec;
             if (!scene.world->hit(curRay, epsilon, infinity, rec, rng)) {
                 if (scene.envmap) {
-                    emitted += throughput * scene.envmap->value(curRay.direction());
+                    color e = scene.envmap->value(curRay.direction());
+                    emitted += throughput * e;
+                    if (cb && max(e) > 0.0)
+                        (*cb)(callback::Emitted::make("env_light", e));
                 }
                 else {
                     emitted += throughput * scene.background;
+                    if (cb && max(scene.background) > 0.0)
+                        (*cb)(callback::Emitted::make("background", scene.background));
                 }
 
-                if (cb) {
-                    if (max(scene.background) > 0.0) 
-                        (*cb)(callback::Emitted::make("background", scene.background));
-                    (*cb)(callback::NoHitTerminal::make());
-                }
+                if (cb) (*cb)(callback::NoHitTerminal::make());
 
                 return emitted;
             }
@@ -71,6 +73,14 @@ private:
             if (cb) (*cb)(callback::CandidateHit::make(rec));
 
             bool hitSurface = true;
+            if (medium && rec.front_face) {
+                // front hit not allowed inside medium
+                // when this happens we assume previous front hit didn't enter the medium
+                // and this is when we are entering the medium
+                medium = nullptr;
+                medium_obj = nullptr;
+                if (cb) (*cb)(callback::MediumSkip::make());
+            }
 
             // take current medium into account
             if (medium) {
@@ -101,9 +111,21 @@ private:
                         }
                     }
                 }
+                else {
+                    // we are ignoring the medium scatter and treating this as a surface hit instead
+                    // TODO should we have an event for that ?
+                }
             }
 
             if (hitSurface) {
+                if (!medium && !rec.front_face) {
+                    // back hits only allowed inside mediums
+                    // otherwise we assume it's a precision issue and we ignore the hit
+                    if (cb) (*cb)(callback::HitSkip::make(rec.front_face));
+                    curRay = { rec.p, curRay.direction() };
+                    continue;
+                }
+
                 // only account for hit, when we actually hit the surface
                 if (cb) (*cb)(callback::SurfaceHit::make(rec));
 
@@ -120,15 +142,19 @@ private:
                 }
 
                 // check if we entered or exited a medium
+                // we assume that mediums can't overlap
                 if (srec.is_refracted) {
-                    // assumes mediums cannot overlap
                     if (medium) {
+                        // we are exiting the medium
                         medium = nullptr;
                         medium_obj = nullptr;
+                        //TODO report event
                     }
-                    else if (srec.medium_ptr) {
+                    else {
+                        // we are entering the medium
                         medium = srec.medium_ptr;
                         medium_obj = rec.obj_ptr;
+                        //TODO if medium null report a WARN event
                     }
                 }
 
@@ -234,7 +260,7 @@ public:
 
         for (auto j = image->height - 1; j >= 0; --j) {
             // TODO implement a callback that tracks progress
-            std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
+            //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image->width; ++i) {
                 const unsigned idx = i + j * image->width;
 
