@@ -378,10 +378,10 @@ void dragon_debug(shared_ptr<hittable_list> objects) {
 }
 
 void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
-    auto material_ground = make_shared<lambertian>(color(1.0));
+    auto material_ground = make_shared<lambertian>(color(0.6));
     //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
     //auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.4005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects->add(make_shared<plane>("floor", point3(0.0, -0.4505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
@@ -696,7 +696,7 @@ int main()
     bool add_light = false;
     bool russian_roulette = true;
 
-    switch (16) {
+    switch (15) {
         case 0:
             two_mediums(world, light, add_light);
             lookfrom = point3(3.40, 2.75, 3.12);
@@ -823,12 +823,13 @@ int main()
             russian_roulette = false;
             break;
         case 15:
-            dragon_scene(world, true);
+            dragon_scene(world, false);
             lookfrom = point3(-4.35952, 2.64187, 4.06531);
             lookat = point3(0, 0.05, 0);
             vfov = 20.0;
             aperture = 0.0;
             background = color(0.6, 0.6, 0.7);
+            russian_roulette = false; //TODO remove, just needed for debugging
             break;
         case 16:
             dragon_debug(world);
@@ -851,9 +852,9 @@ int main()
     shared_ptr<EnvMap> envmap = nullptr;
     if (use_envmap) {
         //auto hdr_filename = "hdrs/christmas_photo_studio_04_1k.hdr";
-        auto hdr_filename = "hdrs/christmas_photo_studio_04_4k.exr";
+        //auto hdr_filename = "hdrs/christmas_photo_studio_04_4k.exr";
         //auto hdr_filename = "hdrs/parched_canal_1k.exr";
-        //auto hdr_filename = "hdrs/large_corridor_4k.exr";
+        auto hdr_filename = "hdrs/large_corridor_4k.exr";
         envmap = make_shared<EnvMap>(hdr_filename);
     }
 
@@ -869,15 +870,15 @@ int main()
     if (!russian_roulette)
         std::cerr << "RUSSIAN ROULETTE DISABLED\n";
 
-    //debug_pixel(pt, 277, 97, 1, true);
-    inspect_all(pt, 1, false, false);
-    render(pt, world, cam, image, 0); // pass spp=0 to disable further rendering in the window
+    debug_pixel(pt, 166, 257, 1, true);
+    //inspect_all(pt, 1, false, false);
+    //render(pt, world, cam, image, 0); // pass spp=0 to disable further rendering in the window
     // offline_render(pt);
     // offline_parallel_render(pt);
-    //window_debug(pt, world, cam, image, 277, 97, 1);
+    window_debug(pt, world, cam, image, 166, 257, 1);
     //debug_sss(pt, world, cam, image);
 
-    //save_image(image, "output/dragon-dbg.png"); 
+    //save_image(image, "output/dragon-glass-1.png"); 
 
     // compare to reference image
     bool save_ref = false;
