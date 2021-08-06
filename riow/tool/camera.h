@@ -12,8 +12,8 @@ namespace tool {
     private:
         const float rotate_speed = 0.5f;
         const float zoom_speed = 0.5f;
-        const float min_dist = 0.01f;
-        const float max_dist = 100.0f;
+        const float min_dist = 0.000001f;
+        const float max_dist = 100000.0f;
 
         float aspect_ratio;
         glm::vec3 look_at;

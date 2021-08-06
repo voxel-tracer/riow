@@ -43,12 +43,16 @@ namespace callback {
                     targetHit = true;
                     hit = h;
                 }
+                else {
+                    targetHit = false;
+                    //TODO if inside, this is a bug
+                }
             }
             else if (cast<MediumSkip>(event)) {
                 mediumSkip = true;
             }
             else if (auto s = cast<SpecularScatter>(event)) {
-                if (s->is_refracted) {
+                if (targetHit && s->is_refracted) {
                     if (inside) {
                         if (hit->rec.front_face) {
                             if (mediumSkip) // we can ignore this case as it was properly handled
@@ -68,7 +72,7 @@ namespace callback {
                 }
             }
             else if (cast<Terminal>(event)) {
-                if (foundBadBack || foundBadFront) {
+                if (foundBadBack || foundBadFront || inside) {
                     numFoundBugs++;
                     lastBuggySample = currentSample;
                 }
@@ -82,6 +86,8 @@ namespace callback {
                     clr = { 1.0, 0.5, 0.5 };
                 else if (foundBadFront)
                     clr = { 0.5, 0.5, 1.0 };
+                else if (inside)
+                    clr = { 1.0, 0.1, 0.1 };
                 else
                     clr = { 0.5, 1.0, 0.5 };
             }

@@ -176,7 +176,7 @@ namespace tool {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 // TODO make debug spp configurable in UI
                 unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
-                if (!isRendering) debugPixel(mouse_last_x, mouse_last_y, spp);
+                debugPixel(mouse_last_x, mouse_last_y, spp);
                 switchTo3D();
             }
         } else {
