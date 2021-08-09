@@ -8,6 +8,7 @@
 #include "rtweekend.h"
 #include "hit_record.h"
 #include "hittable.h"
+#include "material.h"
 #include "tool/tracer_data.h"
 
 namespace callback {
@@ -73,7 +74,9 @@ namespace callback {
             o << "candidate_hit(" << rec.obj_ptr->name;
             if (rec.element != -1)
                 o << ", element = " << rec.element;
-            return o << ", t = " << rec.t << ", normal = " << rec.normal << ", front_face = " << rec.front_face << ")";
+            return o << ", t = " << rec.t << ", normal = " << rec.normal << 
+                ", front_face = " << rec.front_face << 
+                ", uv = (" << rec.u << ", " << rec.v << "))";
         }
 
         static event_ptr make(const hit_record& rec) { return std::make_shared<CandidateHit>(rec); }
@@ -100,10 +103,16 @@ namespace callback {
     };
 
     class MediumSkip : public Skip {
+    private:
+        const std::string reason;
     public:
-        MediumSkip() : Skip("medium") {}
+        MediumSkip(std::string reason) : Skip("medium"), reason(reason) {}
 
-        static event_ptr make() { return std::make_shared<MediumSkip>(); }
+        virtual std::ostream& digest(std::ostream& o) const override {
+            return o << "medium_skip(reason = " << reason << ")";
+        }
+
+        static event_ptr make(std::string reason) { return std::make_shared<MediumSkip>(reason); }
     };
 
     class Bounce: public Event {
@@ -183,17 +192,21 @@ namespace callback {
 
     class SpecularScatter : public Scatter {
     public:
-        SpecularScatter(const vec3& d, bool refracted) : Scatter("specular", d), is_refracted(refracted) {}
-
-        const bool is_refracted;
+        SpecularScatter(const vec3& d, hit_record rec, scatter_record srec) : 
+            Scatter("specular", d), rec(rec), srec(srec) {}
 
         virtual std::ostream& digest(std::ostream& o) const override {
-            return o << "specular_scatter(" << (is_refracted ? "refracted" : "reflected") << ")";
+            return o << "specular_scatter(" <<
+                (srec.is_refracted ? "refracted" : "reflected") <<
+                ", dot(scatter.dir, norm) = " << dot(d, rec.normal) << ")";
         }
 
-        static event_ptr make(const vec3& d, bool refracted) { 
-            return std::make_shared<SpecularScatter>(d, refracted); 
+        static event_ptr make(const vec3& d, hit_record rec, scatter_record srec) { 
+            return std::make_shared<SpecularScatter>(d, rec, srec); 
         }
+
+        const scatter_record srec;
+        const hit_record rec;
     };
 
     class DiffuseScatter : public Scatter {

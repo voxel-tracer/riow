@@ -381,26 +381,27 @@ void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fa
     auto material_ground = make_shared<lambertian>(color(0.6));
     //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
     //auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.4505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects->add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
 
     shared_ptr<Medium> medium{};
     if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.25, 0.025);
     else
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
 
     //auto m = make_shared<metal>(color(0.97, 0.96, 0.91));
-    auto m = make_shared<lambertian>(color(glass_color));
+    //auto m = make_shared<lambertian>(color(glass_color));
     auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, 0);
     dragon->scene.instances[0].frame =
-        yocto::translation_frame({ -0.5f, 0.0f, 0.0f }) *
-        yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(180.0f)) *
-        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-35.0f)) *
+        yocto::translation_frame({ -0.5f, 0.5f, 0.0f }) *
+        yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(-45.0f)) *
+        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-37.5f)) *
         yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
+        yocto::rotation_frame(toYocto(unit_vector({ 1.0f, 0.0f, -1.0f })), yocto::radians(-2.0f)) *
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
     dragon->buildBvh();
     objects->add(dragon);
@@ -495,7 +496,7 @@ void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hit
 shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
     auto scene = make_shared<yocto::scene_model>();
     {
-        // sphere shape
+        // 0: sphere shape
         {
             auto shape = yocto::scene_shape{};
             // make shape with 8 steps in resolution and scale of 1
@@ -504,12 +505,19 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
             shape.triangles = quads_to_triangles(quads);
             scene->shapes.push_back(shape);
         }
-        // box shape
+        // 1: box shape
         {
             auto shape = yocto::scene_shape{};
-            // make shape with 8 steps in resolution and scale of 1
             auto quads = yocto::vector<yocto::vec4i>{};
             yocto::make_cube(quads, shape.positions, shape.normals, shape.texcoords, 1);
+            shape.triangles = quads_to_triangles(quads);
+            scene->shapes.push_back(shape);
+        }
+        // 2: XZ plane shape
+        {
+            auto shape = yocto::scene_shape{};
+            auto quads = yocto::vector<yocto::vec4i>{};
+            yocto::make_floor(quads, shape.positions, shape.normals, shape.texcoords, { 32, 32 }, { 4, 4 }, { 1, 1 });
             shape.triangles = quads_to_triangles(quads);
             scene->shapes.push_back(shape);
         }
@@ -549,6 +557,14 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
                 instance.shape = scene->shapes.size() - 1;
                 scene->instances.push_back(instance);
             }
+            else if (auto p = dynamic_pointer_cast<plane>(o)) {
+                // only supports XZ planes for now
+                auto instance = yocto::scene_instance{};
+                instance.shape = 2; // box shape
+                instance.material = 0;
+                instance.frame = yocto::translation_frame(toYocto(p->origin));
+                scene->instances.push_back(instance);
+            }
         }
     }
 
@@ -571,9 +587,9 @@ void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, unsigned spp, bo
     pt->DebugPixel(x, y, spp, cb);
 }
 
-void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, bool stopAtFirst = false) {
+void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, int stopAtBug = -1) {
     //auto cb = std::make_shared<callback::validate_model>("models/LuYu-obj/LuYu-obj.obj_model");
-    auto cb = std::make_shared<callback::validate_model>("models/dragon_remeshed.ply_model", stopAtFirst);
+    auto cb = std::make_shared<callback::validate_model>("models/dragon_remeshed.ply_model", stopAtBug, true);
     //auto cb = std::make_shared<callback::highlight_element>(1);
     pt->Render(spp, cb);
     cb->digest(cerr) << std::endl;
@@ -823,13 +839,14 @@ int main()
             russian_roulette = false;
             break;
         case 15:
-            dragon_scene(world, false);
-            lookfrom = point3(-4.35952, 2.64187, 4.06531);
-            lookat = point3(0, 0.05, 0);
+            dragon_scene(world, true);
+            // lookfrom = point3(-4.35952, 2.64187, 4.06531);
+            //lookfrom = { 4.31991, 4.0518, -2.75208 };
+            lookfrom = { 2.27155, 7.99803, 0.244723 };
+            lookat = point3(-0.5, 0, -0.5);
             vfov = 20.0;
             aperture = 0.0;
             background = color(0.6, 0.6, 0.7);
-            russian_roulette = false; //TODO remove, just needed for debugging
             break;
         case 16:
             dragon_debug(world);
@@ -870,13 +887,13 @@ int main()
     if (!russian_roulette)
         std::cerr << "RUSSIAN ROULETTE DISABLED\n";
 
-    debug_pixel(pt, 166, 257, 1, true);
-    //inspect_all(pt, 1, false, false);
-    //render(pt, world, cam, image, 0); // pass spp=0 to disable further rendering in the window
+    // debug_pixel(pt, 247, 103, 1, true);
+    // inspect_all(pt, 1, false, -1);
+    render(pt, world, cam, image, -1); // pass spp=0 to disable further rendering in the window
     // offline_render(pt);
     // offline_parallel_render(pt);
-    window_debug(pt, world, cam, image, 166, 257, 1);
-    //debug_sss(pt, world, cam, image);
+    // window_debug(pt, world, cam, image, 267, 161, 1);
+    // debug_sss(pt, world, cam, image);
 
     //save_image(image, "output/dragon-glass-1.png"); 
 

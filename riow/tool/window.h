@@ -18,9 +18,15 @@
 #include "../tracer.h"
 
 namespace tool {
+    enum WindowState {
+        PathTracer,
+        WireFrame,
+        HitView
+    };
+
     class window : public window_base {
     private:
-        bool is2D;
+        WindowState state = WindowState::PathTracer;
         bool esc_pressed = false;
         double mouse_last_x = 0.0f;
         double mouse_last_y = 0.0f;
@@ -30,6 +36,11 @@ namespace tool {
 
         unique_ptr<Shader> shader;
         unique_ptr<ImGuiManager> imGuiManager;
+        
+        // needed by WindowState::ViewHits
+        std::vector<std::shared_ptr<callback::Hit>> hits{};
+        unsigned currentHitIdx = 0;
+        bool n_pressed = false;
 
         std::shared_ptr<scene> scene;
 
@@ -41,8 +52,8 @@ namespace tool {
         shared_ptr<callback::callback> cb;
         bool isRendering = false;
 
-        void switchTo3D(bool force);
-        void switchTo2D(bool force);
+        void switchToWireFrame(bool force);
+        void switchToPathTracer(bool force);
 
     public:
         window(std::shared_ptr<yocto::color_image> image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);

@@ -7,10 +7,22 @@
 #include "tracer_callback.h"
 
 namespace callback {
+    class collect_hits : public callback {
+    public:
+        virtual void operator ()(std::shared_ptr<Event> event) override {
+            if (auto hit = cast<Hit>(event)) {
+                hits.push_back(hit);
+            }
+        }
+
+        std::vector<shared_ptr<Hit>> hits{};
+    };
+
     class validate_model : public callback {
     private:
         const std::string target{};
-        const bool stopAtFirstBug;
+        const int stopAtBug;
+        const bool printBugs;
 
         std::shared_ptr<SurfaceHit> hit;
         std::shared_ptr<New> currentSample;
@@ -26,8 +38,8 @@ namespace callback {
         long numFoundBugs = 0; // total number of samples with bugs
 
     public:
-        validate_model(std::string target, bool stopAtFirstBug = false) :
-            target(target), stopAtFirstBug(stopAtFirstBug) {}
+        validate_model(std::string target, int stopAtBug = -1, bool printBugs = false) :
+            target(target), stopAtBug(stopAtBug), printBugs(printBugs) {}
 
         virtual void operator ()(std::shared_ptr<Event> event) override {
             if (auto n = cast<New>(event)) {
@@ -52,7 +64,7 @@ namespace callback {
                 mediumSkip = true;
             }
             else if (auto s = cast<SpecularScatter>(event)) {
-                if (targetHit && s->is_refracted) {
+                if (targetHit && s->srec.is_refracted) {
                     if (inside) {
                         if (hit->rec.front_face) {
                             if (mediumSkip) // we can ignore this case as it was properly handled
@@ -75,33 +87,34 @@ namespace callback {
                 if (foundBadBack || foundBadFront || inside) {
                     numFoundBugs++;
                     lastBuggySample = currentSample;
+                    if (printBugs)
+                        std::cerr << "bug at (" << currentSample->x << 
+                                     ", " << currentSample->y << 
+                                     ", " << currentSample->sampleId << ")\n";
                 }
             }
         }
 
         virtual void alterPixelColor(vec3& clr) const override {
-
-            if (targetHit) {
-                if (foundBadBack)
-                    clr = { 1.0, 0.5, 0.5 };
-                else if (foundBadFront)
-                    clr = { 0.5, 0.5, 1.0 };
-                else if (inside)
-                    clr = { 1.0, 0.1, 0.1 };
-                else
-                    clr = { 0.5, 1.0, 0.5 };
-            }
+            if (foundBadBack)
+                clr = { 1.0, 0.5, 0.5 };
+            else if (foundBadFront)
+                clr = { 0.5, 0.5, 1.0 };
+            else if (inside)
+                clr = { 1.0, 0.1, 0.1 };
+            else
+                clr = { 0.5, 1.0, 0.5 };
         }
 
         virtual std::ostream& digest(std::ostream& o) const override {
             o << "found " << numFoundBugs << " buggy samples";
-            if (stopAtFirstBug)
+            if (stopAtBug > 0 && numFoundBugs >= stopAtBug)
                 o << ", at(" << lastBuggySample->x << ", " << lastBuggySample->y << ") at sample: " << lastBuggySample->sampleId;
             return o;
         }
 
         virtual bool terminate() const override { 
-            return stopAtFirstBug && numFoundBugs > 0; 
+            return stopAtBug > 0 && numFoundBugs >= stopAtBug; 
         }
 
     };
@@ -220,7 +233,7 @@ namespace callback {
             }
             else if (auto ss = cast<SpecularScatter>(event)) {
                 if (hitTarget) {
-                    if (ss->is_refracted) count++;
+                    if (ss->srec.is_refracted) count++;
                 }
             }
         }
@@ -324,7 +337,7 @@ namespace callback {
             else if (auto sc = cast<Scatter>(e)) {
                 d = sc->d;
                 if (auto ss = cast<SpecularScatter>(e)) {
-                    if (ss->is_refracted)
+                    if (ss->srec.is_refracted)
                         c = color(1, 1, 0); // refracted specular is yellow
                     else
                         c = color(0, 1, 1); // reflected specular is aqua
@@ -339,6 +352,40 @@ namespace callback {
             else if (auto nh = cast<NoHitTerminal>(e)) {
                 // generate a segment that point towards the general direction of the scattered ray
                 segments.push_back({ toYocto(p), toYocto(p + d), toYocto(c) });
+            }
+        }
+
+        std::vector<tool::path_segment> segments;
+    };
+
+    class in_out_segments_cb : public callback {
+    private:
+        vec3 p;
+        vec3 d; // direction
+
+        bool inside = false;
+
+    public:
+        virtual void operator ()(std::shared_ptr<Event> e) override {
+            if (auto n = cast<New>(e)) {
+                p = n->r.origin();
+                d = n->r.direction();
+            }
+            else if (auto h = cast<Hit>(e)) {
+                auto c = inside ? color(1.0, 1.0, 0.0) : color(1.0, 1.0, 1.0);
+                segments.push_back({ toYocto(p), toYocto(h->p), toYocto(c) });
+                p = h->p;
+            }
+            else if (auto sc = cast<Scatter>(e)) {
+                d = sc->d;
+                if (auto ss = cast<SpecularScatter>(e)) {
+                    if (ss->srec.is_refracted)
+                        inside = !inside;
+                }
+            }
+            else if (auto nh = cast<NoHitTerminal>(e)) {
+                // generate a segment that point towards the general direction of the scattered ray
+                segments.push_back({ toYocto(p), toYocto(p + d), toYocto({ 1.0, 1.0, 1.0 }) });
             }
         }
 
@@ -373,7 +420,7 @@ namespace callback {
                 }
             }
             else if (auto s = cast<SpecularScatter>(e)) {
-                if (s->is_refracted) { // ray traversed the surface
+                if (s->srec.is_refracted) { // ray traversed the surface
                     // only track the first entry/exit
                     if (!found) {
                         found = inside = true;

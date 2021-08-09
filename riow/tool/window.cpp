@@ -72,8 +72,9 @@ namespace tool {
         shader->use();
         shader->setMat4("projection", cam.get_projection_matrix());
 
-        // start with 3D mode enabled
-        switchTo2D(true);
+        // start with pathTracer mode
+        switchToPathTracer(true);
+        //switchToWireFrame(true);
 
         // register mouse callback
         // -----------------------
@@ -104,7 +105,7 @@ namespace tool {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             // render our instances
-            if (is2D) {
+            if (state == WindowState::PathTracer) {
                 isRendering = spp == -1 || pt->numSamples() < spp;
                 if (isRendering) {
                     if (cb)
@@ -130,14 +131,14 @@ namespace tool {
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
-            glfwSwapBuffers(glwindow);
-            glfwPollEvents();
+glfwSwapBuffers(glwindow);
+glfwPollEvents();
         }
     }
 
-    void window::switchTo2D(bool force = false) {
-        if (force || !is2D) {
-            is2D = true;
+    void window::switchToPathTracer(bool force = false) {
+        if (force || state != WindowState::PathTracer) {
+            state = WindowState::PathTracer;
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
             if (cam.getChangedAndReset()) {
                 auto from = cam.getLookFrom();
@@ -147,17 +148,18 @@ namespace tool {
         }
     }
 
-    void window::switchTo3D(bool force = false) {
-        if (force || is2D) {
-            is2D = false;
+    void window::switchToWireFrame(bool force = false) {
+        if (force || state != WindowState::WireFrame) {
+            state = WindowState::WireFrame;
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            glEnable(GL_CULL_FACE);
         }
     }
 
     void window::handle_mouse_move(double xPos, double yPos) {
         if (imGuiManager->wantCaptureMouse()) return;
 
-        if (is2D) {
+        if (state == WindowState::PathTracer) {
             if (pixel) {
                 pixel->set_position(xPos, yPos);
                 pixel->set_color(screen->get_color(xPos, yPos));
@@ -172,38 +174,47 @@ namespace tool {
     void window::handle_mouse_buttons(int button, int action, int mods) {
         if (imGuiManager->wantCaptureMouse()) return;
 
-        if (is2D) {
+        if (state == WindowState::PathTracer) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 // TODO make debug spp configurable in UI
                 unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
                 debugPixel(mouse_last_x, mouse_last_y, spp);
-                switchTo3D();
+                switchToWireFrame();
             }
-        } else {
+        }
+        else {
             cam.handle_mouse_buttons(button, action, mods);
         }
     }
 
     void window::debugPixel(unsigned x, unsigned y, unsigned spp) {
         // generate render paths
-        auto cb = std::make_shared<callback::build_segments_cb>();
-        pt->DebugPixel(x, y, spp, cb);
+        //auto buildSegmentsCb = std::make_shared<callback::in_out_segments_cb>();
+        auto buildSegmentsCb = std::make_shared<callback::build_segments_cb>();
+        auto collectHitsCb = std::make_shared<callback::collect_hits>();
+        auto multiCb = std::make_shared<callback::multi>();
+        multiCb->add(buildSegmentsCb);
+        multiCb->add(collectHitsCb);
+
+        pt->DebugPixel(x, y, spp, multiCb);
+
+        hits = collectHitsCb->hits;
 
         if (ls) ls.reset();
-        ls = make_unique<lines>(cb->segments);
+        ls = make_unique<lines>(buildSegmentsCb->segments);
 
         {
             auto pcb = std::make_shared<callback::print_callback>(true);
             pt->DebugPixel(x, y, spp, pcb);
         }
 
-        switchTo3D();
+        switchToWireFrame();
     }
 
     void window::handle_mouse_scroll(double xoffset, double yoffset) {
         if (imGuiManager->wantCaptureMouse()) return;
 
-        if (!is2D) {
+        if (state != WindowState::PathTracer) {
             cam.handle_mouse_scroll(xoffset, yoffset);
         }
     }
@@ -212,16 +223,39 @@ namespace tool {
         if (imGuiManager->wantCaptureKeyboard()) return;
 
         bool is_esc_pressed = glfwGetKey(glwindow, GLFW_KEY_ESCAPE) == GLFW_PRESS;
+        bool isNPressed = glfwGetKey(glwindow, GLFW_KEY_N) == GLFW_PRESS;
+        bool isRPressed = glfwGetKey(glwindow, GLFW_KEY_R) == GLFW_PRESS;
 
-        if (is2D) {
+        static bool r_pressed = false;
+
+        if (state == WindowState::PathTracer) {
             if (!esc_pressed && is_esc_pressed)
-                glfwSetWindowShouldClose(glwindow, GL_TRUE);
-        } else {
+                switchToWireFrame();
+        }
+        else {
             if (!esc_pressed && is_esc_pressed)
-                switchTo2D();
+                switchToPathTracer();
+
+            if (!n_pressed && isNPressed && !hits.empty()) {
+                if (state == WindowState::WireFrame)
+                    currentHitIdx = 0;
+                else
+                    currentHitIdx = (currentHitIdx + 1) % hits.size();
+                state = WindowState::HitView;
+                auto h = hits[currentHitIdx];
+                cam.setLookAt({ h->p[0], h->p[1], h->p[2] });
+            }
+
+            if (isRPressed) {
+                if (!r_pressed) {
+                    cam.reset();
+                }
+            }
         }
 
         esc_pressed = is_esc_pressed;
+        n_pressed   = isNPressed;
+        r_pressed = isRPressed;
     }
 
     void window::showHisto(std::string title, std::vector<float> data) {

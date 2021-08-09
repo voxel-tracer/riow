@@ -73,13 +73,14 @@ private:
             if (cb) (*cb)(callback::CandidateHit::make(rec));
 
             bool hitSurface = true;
-            if (medium && rec.front_face) {
-                // front hit not allowed inside medium
-                // when this happens we assume previous front hit didn't enter the medium
-                // and this is when we are entering the medium
+            if (medium && rec.obj_ptr == medium_obj && rec.front_face) {
+                // once ray enters a medium it can't hit the front surface of the same medium
+                // when this happens we assume the ray exited the medium in the previous bounce
+                // we still allow other objects to be inside the medium but we don't yet support
+                // overlapping mediums
                 medium = nullptr;
                 medium_obj = nullptr;
-                if (cb) (*cb)(callback::MediumSkip::make());
+                if (cb) (*cb)(callback::MediumSkip::make("internal face"));
             }
 
             // take current medium into account
@@ -110,10 +111,13 @@ private:
                             (*cb)(callback::MediumScatter::make(scattered.direction()));
                         }
                     }
+                    else {
+                        if (cb) (*cb)(callback::MediumSkip::make("scattered ray misses medium_obj"));
+                    }
                 }
                 else {
                     // we are ignoring the medium scatter and treating this as a surface hit instead
-                    // TODO should we have an event for that ?
+                    if (cb) (*cb)(callback::MediumSkip::make("scatter beyond surface"));
                 }
             }
 
@@ -141,6 +145,20 @@ private:
                     return emitted;
                 }
 
+                if (medium && srec.is_specular && !srec.is_refracted) {
+                    // even though reflected rays should remain inside the medium
+                    // it is possible for the ray to miss the next intersection with the surface
+                    // the sample color will still be computed correctly but this will cause our
+                    // validation_callback to detect this as a bug
+                    // to avoid that, we check that we can hit the medium_obj in a back face
+                    // or change the scattered ray to refracted
+                    hit_record trec;
+                    if (!medium_obj->hit(srec.specular_ray, epsilon, infinity, trec, rng) || trec.front_face) {
+                        srec.is_refracted = true; // this will make the ray exit the medium
+                        if (cb) (*cb)(callback::MediumSkip::make("swap reflected to refracted"));
+                    }
+                }
+
                 // check if we entered or exited a medium
                 // we assume that mediums can't overlap
                 if (srec.is_refracted) {
@@ -162,7 +180,7 @@ private:
                     throughput *= srec.attenuation;
                     curRay = srec.specular_ray;
 
-                    if (cb) (*cb)(callback::SpecularScatter::make(curRay.direction(), srec.is_refracted));
+                    if (cb) (*cb)(callback::SpecularScatter::make(curRay.direction(), rec, srec));
 
                     continue;
                 }

@@ -11,9 +11,11 @@ namespace tool {
     class camera {
     private:
         const float rotate_speed = 0.5f;
-        const float zoom_speed = 0.5f;
+        const float zoom_speed = 0.1f;
         const float min_dist = 0.000001f;
         const float max_dist = 100000.0f;
+        const glm::vec3 initial_look_at;
+        const glm::vec3 initial_look_from;
 
         float aspect_ratio;
         glm::vec3 look_at;
@@ -32,7 +34,7 @@ namespace tool {
 
     public:
         camera(float ar, glm::vec3 look_at = glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3 look_from = glm::vec3(0.0f, 0.0f, -3.0f)) :
-            aspect_ratio(ar), look_at(look_at) {
+            aspect_ratio(ar), initial_look_at(look_at), initial_look_from(look_from) {
             update(look_from, look_at);
         }
 
@@ -49,7 +51,7 @@ namespace tool {
         }
 
         glm::mat4 get_projection_matrix() const {
-            return glm::perspective(glm::radians(20.0f), aspect_ratio, 0.1f, 100.0f);
+            return glm::perspective(glm::radians(20.0f), aspect_ratio, 0.01f, 100.0f);
         }
 
         void compute_rotations(glm::vec3 look_from) {
@@ -100,7 +102,10 @@ namespace tool {
         }
 
         void handle_mouse_scroll(double xoffset, double yoffset) {
-            dist_to_look_at += zoom_speed * yoffset;
+            if (yoffset > 0) // zoom in
+                dist_to_look_at *= 1.0 + zoom_speed;
+            else // zoom out
+                dist_to_look_at *= 1.0 - zoom_speed;
 
             if (dist_to_look_at < min_dist) dist_to_look_at = min_dist;
             if (dist_to_look_at > max_dist) dist_to_look_at = max_dist;
@@ -110,6 +115,15 @@ namespace tool {
 
         glm::vec3 getLookAt() const { return look_at; }
         glm::vec3 getLookFrom() const { return look_from; }
+
+        void setLookAt(glm::vec3 at) {
+            look_at = at;
+            update_camera_vectors();
+        }
+
+        void reset() {
+            update(initial_look_from, initial_look_at);
+        }
 
         bool getChangedAndReset() {
             bool c = changed;
