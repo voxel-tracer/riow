@@ -65,4 +65,20 @@ public:
         }
         return sqrt(error / (width * height));
     }
+
+    bool findFirstDiff(shared_ptr<const RawData> ref, yocto::vec2i &coord) const {
+        if (ref->width != width || ref->height != height)
+            throw std::invalid_argument("ref image has a different size");
+        for (auto i = 0; i < width * height; i++) {
+            const vec3 f = data[i];
+            const vec3 g = ref->data[i];
+            if (f != g) {
+                coord.x = i % width;
+                coord.y = i / width;
+                return true;
+            }
+        }
+
+        return false;
+    }
 };

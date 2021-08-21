@@ -17,8 +17,17 @@
 #include "rnd.h"
 
 class model : public hittable {
+private:
+    void buildBvh() {
+        clock_t start = clock();
+        bvh = yocto::make_bvh(scene, true);
+        clock_t stop = clock();
+        double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
+        std::cerr << "BVH build time: " << timer_seconds << " seconds\n";
+    }
+
 public:
-    model(std::string filename, std::shared_ptr<material> mat, int subdivisions = 0, bool catmullclark = true) :
+    model(std::string filename, std::shared_ptr<material> mat, yocto::frame3f frame = {}, int subdivisions = 0, bool catmullclark = true) :
             hittable(filename + "_model"), mat_ptr(mat) {
         auto error = std::string{};
         auto shape = yocto::scene_shape{};
@@ -28,6 +37,11 @@ public:
 
         // remove existing normals, we don't want to be interpolating them for now
         shape.normals.clear();
+
+        if (frame != yocto::identity3x4f) {
+            std::cerr << "frame provided. Shape will be transformed to world coordinates\n";
+            for (auto& p : shape.positions) p = yocto::transform_point(frame, p);
+        }
 
         if (subdivisions > 0) {
             shape = yocto::subdivide_shape(shape, subdivisions, catmullclark);
@@ -47,14 +61,8 @@ public:
 
         auto stats = yocto::scene_stats(scene);
         for (auto stat : stats) std::cerr << stat << std::endl;
-    }
 
-    void buildBvh() {
-        clock_t start = clock();
-        bvh = yocto::make_bvh(scene, true);
-        clock_t stop = clock();
-        double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
-        std::cerr << "BVH build time: " << timer_seconds << " seconds\n";
+        buildBvh();
     }
 
     virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, std::shared_ptr<rnd> rng) const override {

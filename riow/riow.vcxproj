@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="bvh.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
     <ClCompile Include="imgui\imgui_demo.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
@@ -162,6 +163,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="box.h" />
+    <ClInclude Include="bvh.h" />
+    <ClInclude Include="bvh_model.h" />
+    <ClInclude Include="bvh_structs.h" />
     <ClInclude Include="callbacks.h" />
     <ClInclude Include="camera.h" />
     <ClInclude Include="color.h" />

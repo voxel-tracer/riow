@@ -356,3 +356,5 @@ MigrationBackup/
 riow/hdrs/
 
 riow/models/
+
+*.raw

@@ -72,6 +72,9 @@
     <ClCompile Include="tool\tool.cpp">
       <Filter>Source Files\tool</Filter>
     </ClCompile>
+    <ClCompile Include="bvh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vec3.h">
@@ -210,6 +213,15 @@
       <Filter>Header Files\tool</Filter>
     </ClInclude>
     <ClInclude Include="model.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bvh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bvh_structs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bvh_model.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

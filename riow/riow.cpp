@@ -14,6 +14,7 @@
 #include "pdf.h"
 #include "callbacks.h"
 #include "model.h"
+#include "bvh_model.h"
 
 #include <iostream>
 #include <functional>
@@ -321,8 +322,7 @@ void monkey_debug(shared_ptr<hittable_list> objects) {
     // no floor
     // passthrough material
     auto m = make_shared<passthrough>();
-    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", m, 0);
-    monkey->buildBvh();
+    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", m);
     objects->add(monkey);
 }
 
@@ -344,8 +344,7 @@ void monkey_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fa
 
     //auto m = make_shared<metal>(color(0.97, 0.96, 0.91));
     auto m = make_shared<lambertian>(color(glass_color));
-    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", tinted_glass, 0);
-    monkey->buildBvh();
+    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", tinted_glass);
     objects->add(monkey);
 }
 
@@ -366,14 +365,13 @@ void dragon_debug(shared_ptr<hittable_list> objects) {
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto m = make_shared<dielectric>(1.5, medium);
 
-    auto dragon = make_shared<model>("models/dragon_remeshed.ply", m, 0);
-    dragon->scene.instances[0].frame =
+    auto frame = 
         yocto::translation_frame({ -0.5f, 0.0f, 0.0f }) *
         yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(180.0f)) *
         yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-35.0f)) *
         yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
-    dragon->buildBvh();
+    auto dragon = make_shared<model>("models/dragon_remeshed.ply", m, frame);
     objects->add(dragon);
 }
 
@@ -395,15 +393,16 @@ void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fa
 
     //auto m = make_shared<metal>(color(0.97, 0.96, 0.91));
     //auto m = make_shared<lambertian>(color(glass_color));
-    auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, 0);
-    dragon->scene.instances[0].frame =
+
+    auto frame = 
         yocto::translation_frame({ -0.5f, 0.5f, 0.0f }) *
         yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(-45.0f)) *
         yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-37.5f)) *
         yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
         yocto::rotation_frame(toYocto(unit_vector({ 1.0f, 0.0f, -1.0f })), yocto::radians(-2.0f)) *
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
-    dragon->buildBvh();
+    //auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame);
+    auto dragon = make_shared<BVHModel>("models/dragon_remeshed.ply", tinted_glass, frame);
     objects->add(dragon);
 }
 
@@ -425,11 +424,11 @@ void monk_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fals
     //auto monk_mat = make_shared<diffuse_subsurface_scattering>(glass_color, medium);
     //auto monk_mat = make_shared<lambertian>(glass_color);
 
-    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", monk_mat, 0);
-    monk->scene.instances[0].frame = yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5)))
-        * yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2)
-        * yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
-    monk->buildBvh();
+    auto frame = 
+        yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5))) *
+        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2) *
+        yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });    
+    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", monk_mat, frame);
     objects->add(monk);
 }
 
@@ -449,11 +448,11 @@ void monk_debug(shared_ptr<hittable_list> objects) {
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto m = make_shared<dielectric>(1.5, medium);
 
-    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", m, 0);
-    monk->scene.instances[0].frame = yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5)))
-        * yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2)
-        * yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
-    monk->buildBvh();
+    auto frame = 
+        yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5))) *
+        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2) *
+        yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
+    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", m, frame);
     objects->add(monk);
 }
 
@@ -554,6 +553,13 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
             else if (auto m = dynamic_pointer_cast<model>(o)) {
                 scene->shapes.push_back(m->scene.shapes[0]);
                 auto instance = m->scene.instances[0];
+                instance.shape = scene->shapes.size() - 1;
+                scene->instances.push_back(instance);
+            }
+            else if (auto m = dynamic_pointer_cast<BVHModel>(o)) {
+                scene->shapes.push_back(m->shape);
+                auto instance = yocto::scene_instance{};
+                instance.shape = 1; // box shape
                 instance.shape = scene->shapes.size() - 1;
                 scene->instances.push_back(instance);
             }
@@ -839,7 +845,7 @@ int main()
             russian_roulette = false;
             break;
         case 15:
-            dragon_scene(world, true);
+            dragon_scene(world, false);
             // lookfrom = point3(-4.35952, 2.64187, 4.06531);
             //lookfrom = { 4.31991, 4.0518, -2.75208 };
             lookfrom = { 2.27155, 7.99803, 0.244723 };
@@ -887,11 +893,11 @@ int main()
     if (!russian_roulette)
         std::cerr << "RUSSIAN ROULETTE DISABLED\n";
 
-    // debug_pixel(pt, 247, 103, 1, true);
+    //debug_pixel(pt, 67, 0, 1, true);
     // inspect_all(pt, 1, false, -1);
-    render(pt, world, cam, image, -1); // pass spp=0 to disable further rendering in the window
+    // render(pt, world, cam, image, 1); // pass spp=0 to disable further rendering in the window
     // offline_render(pt);
-    // offline_parallel_render(pt);
+    offline_parallel_render(pt, 128);
     // window_debug(pt, world, cam, image, 267, 161, 1);
     // debug_sss(pt, world, cam, image);
 
@@ -899,16 +905,20 @@ int main()
 
     // compare to reference image
     bool save_ref = false;
-    bool compare_ref = false;
+    bool compare_ref = true;
 
     auto raw = make_shared<RawData>(image->width, image->height);
     pt->getRawData(raw);
     if (compare_ref) {
-        auto ref = make_shared<RawData>("reference.raw");
+        auto ref = make_shared<RawData>("dragon-ref.raw");
         std::cerr << "RMSE = " << raw->rmse(ref) << std::endl;
+        yocto::vec2i coord;
+        if (raw->findFirstDiff(ref, coord)) {
+            std::cerr << "First diff found at (" << coord.x << ", " << coord.y << ")\n";
+        }
     }
     if (save_ref) {
         //TODO I should add a timestamp to the reference name to avoid corrupting a previous one
-        raw->saveToFile("reference-dummy.raw");
+        raw->saveToFile("dragon-1spp.raw");
     }
 }
