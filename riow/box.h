@@ -11,7 +11,7 @@ public:
     box(std::string name, const point3& center, const vec3& size, std::shared_ptr<material> m) :
         hittable(name + "_box"), bmin(center - size / 2), bmax(center + size / 2), mat_ptr(m) {}
 
-    virtual bool hit(const ray& r, const double t_min, const double t_max, hit_record& rec, std::shared_ptr<rnd> rng) const override {
+    virtual bool hit(const ray& r, const double t_min, const double t_max, hit_record& rec) const override {
         float tmin = -INFINITY;
         float tmax = INFINITY;
         int amin = -1;

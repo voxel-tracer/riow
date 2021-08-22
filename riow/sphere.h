@@ -10,7 +10,7 @@ public:
     sphere(std::string name, point3 cen, double r, shared_ptr<material> m) :
         hittable(name), center(cen), radius(r), mat_ptr(m) {}
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const override;
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override;
     virtual double pdf_value(const point3& o, const vec3& v) const override;
     virtual std::string pdf_name()const override {
         return name;
@@ -40,7 +40,7 @@ public:
     shared_ptr<material> mat_ptr;
 };
 
-bool sphere::hit(const ray& r, double t_min, double t_max, hit_record& rec, shared_ptr<rnd> rng) const {
+bool sphere::hit(const ray& r, double t_min, double t_max, hit_record& rec) const {
     vec3 oc = r.origin() - center;
     auto half_b = dot(oc, r.direction());
     auto c = oc.length_squared() - radius * radius;
@@ -69,7 +69,7 @@ bool sphere::hit(const ray& r, double t_min, double t_max, hit_record& rec, shar
 
 double sphere::pdf_value(const point3& o, const vec3& v) const {
     hit_record rec;
-    if (!this->hit(ray(o, v), 0.001, infinity, rec, nullptr))
+    if (!this->hit(ray(o, v), 0.001, infinity, rec))
         return 0.0;
 
     auto cos_theta_max = sqrt(1 - radius * radius / (center - o).length_squared());

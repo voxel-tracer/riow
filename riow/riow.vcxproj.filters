@@ -113,9 +113,6 @@
     <ClInclude Include="rtw_stb_image.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="constant_medium.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="onb.h">
       <Filter>Header Files</Filter>
     </ClInclude>

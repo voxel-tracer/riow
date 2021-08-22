@@ -65,7 +65,7 @@ public:
         buildBvh();
     }
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, std::shared_ptr<rnd> rng) const override {
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override {
         auto ray = yocto::ray3f{ 
             toYocto(r.origin()), 
             toYocto(r.direction()),

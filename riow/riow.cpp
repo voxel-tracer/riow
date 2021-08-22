@@ -8,7 +8,6 @@
 #include "sphere.h"
 #include "plane.h"
 #include "box.h"
-#include "constant_medium.h"
 #include "camera.h"
 #include "material.h"
 #include "pdf.h"
@@ -467,31 +466,6 @@ void metal_ball(shared_ptr<hittable_list> objects) {
     objects->add(ball);
 }
 
-void three_spheres_with_medium(shared_ptr<hittable_list> objects, shared_ptr<hittable> &light, bool add_light) {
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
-
-    auto material_right = make_shared<dielectric>(1.5);
-    auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
-
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
-
-    auto white = make_shared<lambertian>(color(0.73, 0.73, 0.73));
-    shared_ptr<hittable> sphere1 = make_shared<sphere>("center_ball", point3(0.0, 0.0, -1.0), 0.5, white);
-    objects->add(make_shared<constant_medium>(sphere1, 10.0, color(.99, .93, .93)));
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(10.0, 10.0, 10.0));
-        light = make_shared<sphere>("light", point3(0.0, 2.0, 0.0), 0.1, material_light);
-        objects->add(light);
-    }
-
-    objects->add(make_shared<sphere>("left_ball", point3(-1.0, 0.0, -1.0), 0.5, material_left));
-
-    objects->add(make_shared<sphere>("right_ball_inner", point3(1.0, 0.0, -1.0), -0.49, material_right));
-    objects->add(make_shared<sphere>("right_ball_outer", point3(1.0, 0.0, -1.0), 0.5, material_right));
-}
-
 shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
     auto scene = make_shared<yocto::scene_model>();
     {
@@ -523,11 +497,7 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
         scene->materials.push_back({}); // create a black material directly
 
         for (auto o : world->objects) {
-            // only supports spheres for now and constant_medium that uses sphere as a boundary
-            if (auto cm = dynamic_pointer_cast<constant_medium>(o)) {
-                o = cm->boundary;
-            }
-            else if (auto s = dynamic_pointer_cast<sphere>(o)) {
+            if (auto s = dynamic_pointer_cast<sphere>(o)) {
                 if (s->radius > 99.0) continue; // ignore floor sphere
 
                 auto instance = yocto::scene_instance{};
@@ -750,14 +720,6 @@ int main()
             vfov = 20.0;
             aperture = 0.1;
             background = color(1.0, 1.0, 1.0);
-            break;
-        case 4:
-            three_spheres_with_medium(world, light, add_light);
-            lookfrom = point3(3, 2, 2);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(0.70, 0.80, 1.00);
             break;
         case 5:
             glass_ball(world, true);

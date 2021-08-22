@@ -52,7 +52,7 @@ private:
             if (cb) (*cb)(callback::Bounce::make(depth, throughput));
 
             hit_record rec;
-            if (!scene.world->hit(curRay, epsilon, infinity, rec, rng)) {
+            if (!scene.world->hit(curRay, epsilon, infinity, rec)) {
                 if (scene.envmap) {
                     color e = scene.envmap->value(curRay.direction());
                     emitted += throughput * e;
@@ -101,7 +101,7 @@ private:
                     // if the scattered ray is too close to the surface it is possible
                     // it will miss it, in that case ignore the medium scattering
                     hit_record tmp;
-                    if (medium_obj->hit(scattered, epsilon, infinity, tmp, rng)) {
+                    if (medium_obj->hit(scattered, epsilon, infinity, tmp)) {
                         // ray scattered inside the medium
                         hitSurface = false;
                         curRay = scattered;
@@ -153,7 +153,7 @@ private:
                     // to avoid that, we check that we can hit the medium_obj in a back face
                     // or change the scattered ray to refracted
                     hit_record trec;
-                    if (!medium_obj->hit(srec.specular_ray, epsilon, infinity, trec, rng) || trec.front_face) {
+                    if (!medium_obj->hit(srec.specular_ray, epsilon, infinity, trec) || trec.front_face) {
                         srec.is_refracted = true; // this will make the ray exit the medium
                         if (cb) (*cb)(callback::MediumSkip::make("swap reflected to refracted"));
                     }

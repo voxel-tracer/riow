@@ -12,7 +12,7 @@ public:
     plane(std::string name, const point3& o, const vec3& n, std::shared_ptr<material> m) :
         hittable(name + "_plane"), origin(o), norm(unit_vector(n)), mat_ptr(m) {}
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, std::shared_ptr<rnd> rng) const override {
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override {
         double denom = dot(norm, r.direction());
 
         if (denom > -0.000001f) return false;

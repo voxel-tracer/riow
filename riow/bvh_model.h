@@ -40,7 +40,7 @@ public:
         bvh = BVHAccel::Create(shape, BVHAccel::SplitMethod::SAH);
     }
 
-    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec, std::shared_ptr<rnd> rng) const override {
+    virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override {
         yocto::ray3f r3f = {
             toYocto(r.origin()),
             toYocto(r.direction()),
