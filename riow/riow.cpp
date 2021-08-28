@@ -401,8 +401,8 @@ void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fa
         yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
         yocto::rotation_frame(toYocto(unit_vector({ 1.0f, 0.0f, -1.0f })), yocto::radians(-2.0f)) *
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
-    //auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame);
-    auto dragon = make_shared<BVHModel>("models/dragon_remeshed.ply", tinted_glass, frame);
+    auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame);
+    //auto dragon = make_shared<BVHModel>("models/dragon_remeshed.ply", tinted_glass, frame);
     objects->add(dragon);
 }
 

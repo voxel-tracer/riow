@@ -20,7 +20,7 @@ class model : public hittable {
 private:
     void buildBvh() {
         clock_t start = clock();
-        bvh = yocto::make_bvh(scene, true);
+        bvh = yocto::make_bvh(scene, true, true);
         clock_t stop = clock();
         double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
         std::cerr << "BVH build time: " << timer_seconds << " seconds\n";
