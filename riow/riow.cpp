@@ -18,6 +18,7 @@
 #include <iostream>
 #include <functional>
 #include <time.h>
+#include <thread>
 
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
@@ -855,10 +856,12 @@ int main()
     if (!russian_roulette)
         std::cerr << "RUSSIAN ROULETTE DISABLED\n";
 
+    std::cerr << "hardware_concurrency = " << std::thread::hardware_concurrency() << std::endl;
+
     //debug_pixel(pt, 67, 0, 1, true);
     // inspect_all(pt, 1, false, -1);
     // render(pt, world, cam, image, 1); // pass spp=0 to disable further rendering in the window
-    // offline_render(pt);
+    //offline_render(pt, 128);
     offline_parallel_render(pt, 128);
     // window_debug(pt, world, cam, image, 267, 161, 1);
     // debug_sss(pt, world, cam, image);
@@ -872,7 +875,7 @@ int main()
     auto raw = make_shared<RawData>(image->width, image->height);
     pt->getRawData(raw);
     if (compare_ref) {
-        auto ref = make_shared<RawData>("dragon-ref.raw");
+        auto ref = make_shared<RawData>("dragon-128spp.raw");
         std::cerr << "RMSE = " << raw->rmse(ref) << std::endl;
         yocto::vec2i coord;
         if (raw->findFirstDiff(ref, coord)) {
@@ -881,6 +884,6 @@ int main()
     }
     if (save_ref) {
         //TODO I should add a timestamp to the reference name to avoid corrupting a previous one
-        raw->saveToFile("dragon-1spp.raw");
+        raw->saveToFile("dragon-128spp.raw");
     }
 }
