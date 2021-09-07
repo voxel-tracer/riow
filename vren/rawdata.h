@@ -3,6 +3,7 @@
 #include <vector>
 #include <fstream>
 #include <stdexcept>
+#include <cstring>
 
 #include "vec3.h"
 

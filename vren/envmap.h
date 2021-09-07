@@ -6,7 +6,6 @@
 #include "vec3.h"
 #include "pdf.h"
 
-#include <stdexcept>
 #include <iostream>
 
 yocto::vec2i dir2ij(const vec3 direction, int texture_width, int texture_height) {
@@ -94,10 +93,9 @@ public:
     static yocto::color_image loadImage(std::string filename) {
         auto error = std::string{};
         auto image = yocto::color_image{};
-        if (!yocto::load_image(filename, image, error)) {
-            std::cerr << "Failed to load image: " << error << std::endl;
-            throw std::exception("Failed to load image");
-        }
+        if (!yocto::load_image(filename, image, error))
+            yocto::print_fatal("Failed to load image: " + error);
+
         return image;
     }
 

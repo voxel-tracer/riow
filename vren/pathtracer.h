@@ -16,10 +16,7 @@ struct scene_desc {
     shared_ptr<pdf> getSceneLightPdf(const point3& origin) const {
         if (envmap) return envmap->pdf;
         else if (light) return make_shared <hittable_pdf>(light, origin);
-    }
-
-    bool hasLightPdf() const {
-        return envmap || light;
+        else return nullptr;
     }
 };
 
@@ -186,8 +183,9 @@ private:
                 }
 
                 shared_ptr<pdf> mat_pdf = srec.pdf_ptr;
-                if (scene.hasLightPdf()) {
-                    mat_pdf = make_shared<mixture_pdf>(scene.getSceneLightPdf(rec.p), srec.pdf_ptr);
+                shared_ptr<pdf> light_pdf = scene.getSceneLightPdf(rec.p);
+                if (light_pdf) {
+                    mat_pdf = make_shared<mixture_pdf>(light_pdf, srec.pdf_ptr);
                 }
 
                 ray scattered = ray(rec.p, mat_pdf->generate(rng));

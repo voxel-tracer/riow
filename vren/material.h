@@ -1,7 +1,7 @@
 #pragma once
 
 #include "rtweekend.h"
-#include "medium.h";
+#include "medium.h"
 #include "texture.h"
 #include "onb.h"
 #include "pdf.h"
@@ -194,8 +194,9 @@ public:
             srec.is_specular = true;
             srec.is_refracted = true;
             srec.specular_ray = ray(rec.p, in.direction());
-            return true;
         }
+
+        return true;
     }
 
     color albedo;

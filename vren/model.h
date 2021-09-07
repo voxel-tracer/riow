@@ -12,22 +12,22 @@
 #include <yocto/yocto_geometry.h>
 #include <yocto/yocto_scene.h>
 #include <yocto/yocto_sceneio.h>
+#include <yocto/yocto_cli.h>
 
 #include "hittable.h"
 #include "rnd.h"
 
 class model : public hittable {
 private:
-    void buildBvh() {
-        clock_t start = clock();
-        bvh = yocto::make_bvh(scene, true, true);
-        clock_t stop = clock();
-        double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
-        std::cerr << "BVH build time: " << timer_seconds << " seconds\n";
+    void buildBvh(bool embree) {
+        yocto::print_progress_begin("Build BVH");
+        bvh = yocto::make_bvh(scene, true, embree);
+        yocto::print_progress_end();
     }
 
 public:
-    model(std::string filename, std::shared_ptr<material> mat, yocto::frame3f frame = {}, int subdivisions = 0, bool catmullclark = true) :
+    model(std::string filename, std::shared_ptr<material> mat, yocto::frame3f frame = {}, bool embree = true, 
+            int subdivisions = 0, bool catmullclark = true) :
             hittable(filename + "_model"), mat_ptr(mat) {
         auto error = std::string{};
         auto shape = yocto::scene_shape{};
@@ -39,7 +39,7 @@ public:
         shape.normals.clear();
 
         if (frame != yocto::identity3x4f) {
-            std::cerr << "frame provided. Shape will be transformed to world coordinates\n";
+            yocto::print_info("frame provided. Shape will be transformed to world coordinates");
             for (auto& p : shape.positions) p = yocto::transform_point(frame, p);
         }
 
@@ -59,10 +59,7 @@ public:
         instance.material = 0;
         scene.instances.push_back(instance);
 
-        auto stats = yocto::scene_stats(scene);
-        for (auto stat : stats) std::cerr << stat << std::endl;
-
-        buildBvh();
+        buildBvh(embree);
     }
 
     virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override {

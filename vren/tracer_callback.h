@@ -9,7 +9,6 @@
 #include "hit_record.h"
 #include "hittable.h"
 #include "material.h"
-#include "tool/tracer_data.h"
 
 namespace callback {
     class Event {

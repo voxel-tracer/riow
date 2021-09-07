@@ -130,7 +130,7 @@ float BVHAccel::sahCost(const BVHBuildNode* node, float rootSA) const {
 SplitCandidate findObjectSplit(std::vector<BVHPrimitiveInfo>& primitiveInfo, int start, int end, 
         const yocto::bbox3f& bounds, const yocto::bbox3f& centroidBounds, bool useBestDim, float internalCost) {
     SplitCandidate split;
-    split.cost = FLT_MAX;
+    split.cost = yocto::flt_max;
 
     // Allocate BucketInfo for SAH partition buckets
     BucketInfo buckets[nBuckets];
