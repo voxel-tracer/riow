@@ -15,6 +15,8 @@
 #include <functional>
 #include <time.h>
 #include <thread>
+#include <sstream>
+#include <iomanip>
 
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
@@ -34,6 +36,8 @@ struct app_params {
     bool embree = false;
     bool save_reference = false;
     bool sss = false;
+    float medium_ad = 0.25f;
+    float medium_sd = 0.025f;
 };
 
 void parse_cli(app_params& params, int argc, const char** argv) {
@@ -49,10 +53,12 @@ void parse_cli(app_params& params, int argc, const char** argv) {
     yocto::add_option(cli, "embree", params.embree, "Use Embree.");
     yocto::add_option(cli, "save_ref", params.save_reference, "Save Reference as reference.raw");
     yocto::add_option(cli, "sss", params.sss, "Use Subsufrace Scatteting material.");
+    yocto::add_option(cli, "med_ad", params.medium_ad, "Medium Absorption Distance.");
+    yocto::add_option(cli, "med_sd", params.medium_sd, "Medium Scattering Distance.");
     yocto::parse_cli(cli, argc, argv);
 }
 
-void dragon_scene(hittable_list& objects, bool embree, bool scattering_medium = false) {
+void dragon_scene(hittable_list& objects, const app_params& params) {
     auto material_ground = make_shared<lambertian>(color(0.6));
     objects.add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
@@ -60,10 +66,10 @@ void dragon_scene(hittable_list& objects, bool embree, bool scattering_medium = 
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
 
     shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.25, 0.025);
+    if (params.sss)
+        medium = make_shared<IsotropicScatteringMedium>(glass_color, params.medium_ad, params.medium_sd);
     else
-        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
+        medium = make_shared<NoScatterMedium>(glass_color, params.medium_ad);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
 
     auto frame =
@@ -73,7 +79,7 @@ void dragon_scene(hittable_list& objects, bool embree, bool scattering_medium = 
         yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
         yocto::rotation_frame(toYocto(unit_vector({ 1.0f, 0.0f, -1.0f })), yocto::radians(-2.0f)) *
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
-    auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame, embree);
+    auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame, params.embree);
     objects.add(dragon);
 }
 
@@ -81,6 +87,12 @@ void save_image(const yocto::color_image& image, string filename) {
     auto error = string{};
     if (!save_image(filename, image, error))
         yocto::print_fatal("Failed to save image: " + error);
+}
+
+void save_image(const yocto::color_image& image, string prefix, int pass, string suffix) {
+    stringstream ss;
+    ss << prefix << setw(4) << setfill('0') << pass << suffix;
+    save_image(image, ss.str());
 }
 
 void single_pass(shared_ptr<tracer> pt, const app_params& params, int pass) {
@@ -130,7 +142,7 @@ int main(int argc, const char* argv[]) {
     bool add_light = false;
     bool russian_roulette = true;
 
-    dragon_scene(world, params.embree, params.sss);
+    dragon_scene(world, params);
     lookfrom = { 2.27155, 7.99803, 0.244723 };
     lookat = point3(-0.5, 0, -0.5);
     vfov = 20.0;
@@ -165,7 +177,7 @@ int main(int argc, const char* argv[]) {
         while (true) {
             ++pass;
             parallel_render(pt, params, pass);
-            save_image(image, params.output + to_string(pass) + ".png");
+            save_image(image, params.output, pass, ".png");
         }
     }
     else {
