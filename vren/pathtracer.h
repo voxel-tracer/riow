@@ -333,11 +333,11 @@ public:
         samples = 0;
     }
 
-    virtual void getRawData(shared_ptr<RawData> data) const override {
+    virtual void getRawData(RawData& data) const override {
         for (auto j : yocto::range(image->height)) {
             for (auto i : yocto::range(image->width)) {
                 const unsigned idx = i + j * image->width;
-                data->set(i, (image->height - 1) - j, rawData[idx] / samples);
+                data.set(i, (image->height - 1) - j, rawData[idx] / samples);
             }
         }
     }

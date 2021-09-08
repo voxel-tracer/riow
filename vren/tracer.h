@@ -20,5 +20,5 @@ public:
     // keep camera as is but resets rendering back to iteration 0
     virtual void Reset() = 0;
 
-    virtual void getRawData(shared_ptr<RawData> data) const = 0;
+    virtual void getRawData(RawData& data) const = 0;
 };

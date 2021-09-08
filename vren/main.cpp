@@ -31,6 +31,7 @@ struct app_params {
     string output = "out";
     bool infinite = false;
     bool embree = false;
+    bool save_reference = false;
 };
 
 void parse_cli(app_params& params, int argc, const char** argv) {
@@ -43,6 +44,7 @@ void parse_cli(app_params& params, int argc, const char** argv) {
     yocto::add_option(cli, "output", params.output, "Output Filename.");
     yocto::add_option(cli, "infinite", params.infinite, "Render forever.");
     yocto::add_option(cli, "embree", params.embree, "Use Embree.");
+    yocto::add_option(cli, "save_ref", params.save_reference, "Save Reference as reference.raw");
     yocto::parse_cli(cli, argc, argv);
 }
 
@@ -168,5 +170,11 @@ int main(int argc, const char* argv[]) {
         parallel_render(pt, params, 1);
         //single_pass(pt, params, 1);
         save_image(image, params.output + ".png");
+    }
+
+    if (params.save_reference) {
+        RawData raw(image->width, image->height);
+        pt->getRawData(raw);
+        raw.saveToFile("reference.raw");
     }
 }
