@@ -31,9 +31,9 @@ public:
         return sum;
     }
 
-    virtual vec3 random(const vec3& o, shared_ptr<rnd> rng) override {
+    virtual vec3 random(const vec3& o, rnd& rng) override {
         auto int_size = static_cast<int>(objects.size());
-        used_object = rng->random_int(0, int_size - 1);
+        used_object = rng.random_int(0, int_size - 1);
         return objects[used_object]->random(o, rng);
     }
 
@@ -54,7 +54,7 @@ bool hittable_list::hit(const ray& r, double t_min, double t_max, hit_record& re
             hit_anything = true;
             closest_so_far = temp_rec.t;
             rec = temp_rec;
-            rec.obj_ptr = object;
+            rec.obj_ptr = object.get();
         }
     }
 

@@ -55,7 +55,7 @@ public:
         rec.u = 0;
         rec.v = 0;
 
-        rec.mat_ptr = mat_ptr;
+        rec.mat_ptr = mat_ptr.get();
 
         return true;
 

@@ -9,22 +9,20 @@
 
 struct scene_desc {
     color background;
-    shared_ptr<hittable> world;
-    std::shared_ptr<hittable> light;
-    shared_ptr<EnvMap> envmap;
+    hittable& world;
+    EnvMap* envmap;
 
-    shared_ptr<pdf> getSceneLightPdf(const point3& origin) const {
-        if (envmap) return envmap->pdf;
-        else if (light) return make_shared <hittable_pdf>(light, origin);
+    pdf* getSceneLightPdf(const point3& origin) const {
+        if (envmap) return envmap->pdf.get();
         else return nullptr;
     }
 };
 
 class pathtracer: public tracer {
 private:
-    const shared_ptr<camera> cam;
+    camera& cam;
     // TODO move HDR->LDR conversion to RawData and let caller use getRawData()
-    shared_ptr<yocto::color_image> image;
+    yocto::color_image& image;
     const scene_desc scene;
     const unsigned max_depth;
     const unsigned rroulette_depth;
@@ -34,22 +32,22 @@ private:
     std::vector<color> rawData;
     std::vector<unsigned> seeds;
 
-    color ray_color(const ray& r, shared_ptr<rnd> rng, callback::callback_ptr cb) {
+    color ray_color(const ray& r, rnd& rng, callback::callback* cb) {
         const double epsilon = 0.001;
 
         color throughput = { 1, 1, 1 };
         color emitted = { 0, 0, 0 };
         ray curRay = r;
 
-        shared_ptr<Medium> medium = {};
-        shared_ptr<hittable> medium_obj = {};
+        Medium* medium = nullptr;
+        hittable* medium_obj = nullptr;
 
         for (auto depth = 0; depth < max_depth; ++depth) {
             if (cb && cb->terminate()) break;
             if (cb) (*cb)(callback::Bounce::make(depth, throughput));
 
             hit_record rec;
-            if (!scene.world->hit(curRay, epsilon, infinity, rec)) {
+            if (!scene.world.hit(curRay, epsilon, infinity, rec)) {
                 if (scene.envmap) {
                     color e = scene.envmap->value(curRay.direction());
                     emitted += throughput * e;
@@ -182,15 +180,22 @@ private:
                     continue;
                 }
 
-                shared_ptr<pdf> mat_pdf = srec.pdf_ptr;
-                shared_ptr<pdf> light_pdf = scene.getSceneLightPdf(rec.p);
-                if (light_pdf) {
-                    mat_pdf = make_shared<mixture_pdf>(light_pdf, srec.pdf_ptr);
+                pdf* mat_pdf = srec.pdf_ptr.get();
+                bool using_mixture = false;
+                {
+                    pdf* light_pdf = scene.getSceneLightPdf(rec.p);
+                    if (light_pdf) {
+                        mat_pdf = new mixture_pdf(light_pdf, mat_pdf);
+                        using_mixture = true;
+                    }
                 }
 
                 ray scattered = ray(rec.p, mat_pdf->generate(rng));
                 double pdf_val = mat_pdf->value(scattered.direction());
                 if (cb)(*cb)(callback::PdfSample::make(mat_pdf->name(), pdf_val));
+
+                if (using_mixture)
+                    delete mat_pdf;
 
                 double scattering_pdf = rec.mat_ptr->scattering_pdf(curRay, rec, scattered);
                 // when sampling lights it is possible to generate scattered rays that go inside the surface
@@ -210,7 +215,7 @@ private:
             // Russian roulette
             if (depth > rroulette_depth) {
                 double m = max(throughput);
-                if (rng->random_double() > m) {
+                if (rng.random_double() > m) {
                     if (cb) (*cb)(callback::RouletteTerminal::make());
 
                     return emitted;
@@ -226,59 +231,59 @@ private:
     }
 
     unsigned pixelIdx(unsigned i, unsigned j) const {
-        return i + j * image->width;
+        return i + j * image.width;
     }
 
     unsigned computeSeed(int i, int j) const {
-        return (xor_rnd::wang_hash(j * image->width + i) * 336343633) | 1;
+        return (xor_rnd::wang_hash(j * image.width + i) * 336343633) | 1;
     }
 
     void initSeeds() {
-        for (auto j = 0; j != image->height; ++j) {
-            for (auto i = 0; i != image->width; ++i) {
+        for (auto j = 0; j != image.height; ++j) {
+            for (auto i = 0; i != image.width; ++i) {
                 seeds[pixelIdx(i, j)] = computeSeed(i, j);
             }
         }
     }
 
-    color RenderPixel(unsigned i, unsigned j, unsigned spp, callback::callback_ptr cb, bool force_reset_seed = false) {
+    color RenderPixel(unsigned i, unsigned j, unsigned spp, callback::callback* cb, bool force_reset_seed = false) {
         color pixel_color{ 0, 0, 0 };
 
         unsigned seed = force_reset_seed ? computeSeed(i, j) : seeds[pixelIdx(i, j)];
-        auto local_rng = make_shared<xor_rnd>(seed);
+        xor_rnd local_rng{ seed };
 
         for (auto s = 0; s != spp; ++s) {
-            auto u = (i + local_rng->random_double()) / (image->width - 1);
-            auto v = (j + local_rng->random_double()) / (image->height - 1);
-            ray r = cam->get_ray(u, v, local_rng);
+            auto u = (i + local_rng.random_double()) / (image.width - 1);
+            auto v = (j + local_rng.random_double()) / (image.height - 1);
+            ray r = cam.get_ray(u, v, local_rng);
 
-            if (cb) (*cb)(callback::New::make(r, i, (image->height - 1) - j, s));
+            if (cb) (*cb)(callback::New::make(r, i, (image.height - 1) - j, s));
 
             pixel_color += ray_color(r, local_rng, cb);
             if (cb && cb->terminate()) break;
         }
 
         if (!force_reset_seed)
-            seeds[pixelIdx(i, j)] = local_rng->getState();
+            seeds[pixelIdx(i, j)] = local_rng.getState();
 
         return pixel_color;
     }
 
 public:
-    pathtracer(shared_ptr<camera> c, shared_ptr<yocto::color_image> im, scene_desc sc, unsigned md, unsigned rrd)
+    pathtracer(camera& c, yocto::color_image& im, scene_desc sc, unsigned md, unsigned rrd)
         : cam(c), image(im), scene(sc), max_depth(md), rroulette_depth(rrd),
-        rawData(im->width * im->height, color()), seeds(im->width * im->height, 0) {
+        rawData(im.width * im.height, color()), seeds(im.width * im.height, 0) {
         initSeeds();
     }
 
-    virtual void Render(unsigned spp, callback::callback_ptr cb) override {
+    virtual void Render(unsigned spp, callback::callback* cb) override {
         samples += spp; // needed to properly average the samples
 
-        for (auto j = image->height - 1; j >= 0; --j) {
+        for (auto j = image.height - 1; j >= 0; --j) {
             // TODO implement a callback that tracks progress
             //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
-            for (auto i = 0; i != image->width; ++i) {
-                const unsigned idx = i + j * image->width;
+            for (auto i = 0; i != image.width; ++i) {
+                const unsigned idx = i + j * image.width;
 
                 color clr = RenderPixel(i, j, spp, cb);
                 if (cb) cb->alterPixelColor(clr);
@@ -287,17 +292,17 @@ public:
                 if (cb && cb->terminate()) return;
 
                 //TODO I should keep the raw colors and only convert to LDR when returning the image
-                yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], samples));
+                yocto::set_pixel(image, i, (image.height - 1) - j, convert(rawData[idx], samples));
             }
         }
 
         std::cerr << std::endl;
     }
 
-    virtual void RenderParallel(unsigned spp, callback::callback_ptr cb) override {
+    virtual void RenderParallel(unsigned spp, callback::callback* cb) override {
         samples += spp;
-        yocto::parallel_for(image->width, image->height, [&](unsigned i, unsigned j) {
-            const unsigned idx = i + j * image->width;
+        yocto::parallel_for(image.width, image.height, [&](unsigned i, unsigned j) {
+            const unsigned idx = i + j * image.width;
 
             color clr = RenderPixel(i, j, spp, cb);
             if (cb) cb->alterPixelColor(clr);
@@ -305,16 +310,16 @@ public:
 
             if (cb && cb->terminate()) return;
 
-            yocto::set_pixel(*image, i, (image->height - 1) - j, convert(rawData[idx], samples));
+            yocto::set_pixel(image, i, (image.height - 1) - j, convert(rawData[idx], samples));
         });
     }
 
-    virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback_ptr cb) override {
+    virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback* cb) override {
         std::cerr << "\nDebugPixel(" << x << ", " << y << ")\n";
 
         // to render pixel (x, y)
         auto i = x;
-        auto j = (image->height - 1) - y;
+        auto j = (image.height - 1) - y;
         RenderPixel(i, j, spp, cb, true);
     }
 
@@ -323,7 +328,7 @@ public:
     virtual void updateCamera(
         double from_x, double from_y, double from_z,
         double at_x, double at_y, double at_z) override {
-        cam->update({ from_x, from_y, from_z }, { at_x, at_y, at_z });
+        cam.update({ from_x, from_y, from_z }, { at_x, at_y, at_z });
         Reset();
     }
 
@@ -334,10 +339,10 @@ public:
     }
 
     virtual void getRawData(RawData& data) const override {
-        for (auto j : yocto::range(image->height)) {
-            for (auto i : yocto::range(image->width)) {
-                const unsigned idx = i + j * image->width;
-                data.set(i, (image->height - 1) - j, rawData[idx] / samples);
+        for (auto j : yocto::range(image.height)) {
+            for (auto i : yocto::range(image.width)) {
+                const unsigned idx = i + j * image.width;
+                data.set(i, (image.height - 1) - j, rawData[idx] / samples);
             }
         }
     }

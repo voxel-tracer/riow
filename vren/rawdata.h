@@ -26,7 +26,7 @@ public:
         char* header = new char[headerLen];
         in.read(header, headerLen);
         if (strcmp(HEADER, header) != 0) {
-            throw std::runtime_error("invalid header: " + std::string(header));
+            yocto::print_fatal("invalid header: " + std::string(header));
         }
 
         in.read((char*)&width, sizeof(unsigned));

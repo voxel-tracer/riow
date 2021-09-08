@@ -10,7 +10,7 @@ public:
     virtual ~pdf() {}
 
     virtual double value(const vec3& direction) const = 0;
-    virtual vec3 generate(shared_ptr<rnd> rng) = 0;
+    virtual vec3 generate(rnd& rng) = 0;
     virtual std::string name() const = 0;
 };
 
@@ -23,8 +23,8 @@ public:
         return cosine <= 0 ? 0 : cosine / pi;
     }
 
-    virtual vec3 generate(shared_ptr<rnd> rng) {
-        return uvw.local(rng->random_cosine_direction());
+    virtual vec3 generate(rnd& rng) override {
+        return uvw.local(rng.random_cosine_direction());
     }
 
     virtual std::string name() const override {
@@ -42,7 +42,7 @@ public:
         return ptr->pdf_value(o, direction);
     }
 
-    virtual vec3 generate(shared_ptr<rnd> rng) {
+    virtual vec3 generate(rnd& rng) override {
         return ptr->random(o, rng);
     }
 
@@ -56,10 +56,10 @@ public:
 
 class mixture_pdf : public pdf {
 private:
-    shared_ptr<pdf> chosen = nullptr;
+    pdf* chosen = nullptr;
 
 public:
-    mixture_pdf(shared_ptr<pdf> p0, shared_ptr<pdf> p1) {
+    mixture_pdf(pdf* p0, pdf* p1) {
         p[0] = p0;
         p[1] = p1;
     }
@@ -68,8 +68,8 @@ public:
         return 0.5 * p[0]->value(direction) + 0.5 * p[1]->value(direction);
     }
 
-    virtual vec3 generate(shared_ptr<rnd> rng) {
-        chosen = (rng->random_double() < 0.5) ? p[0] : p[1];
+    virtual vec3 generate(rnd& rng) override {
+        chosen = (rng.random_double() < 0.5) ? p[0] : p[1];
         return chosen->generate(rng);
     }
 
@@ -77,7 +77,7 @@ public:
         return "mixture_pdf(" + chosen->name() + ")";
     }
 
-    shared_ptr<pdf> p[2];
+    pdf* p[2];
 };
 
 class uniform_sphere_pdf : public pdf {
@@ -88,8 +88,8 @@ public:
         return 1.0 / (4 * pi);
     }
 
-    virtual vec3 generate(shared_ptr<rnd> rng) {
-        return rng->random_in_unit_sphere();
+    virtual vec3 generate(rnd& rng) override {
+        return rng.random_in_unit_sphere();
     }
 
     virtual std::string name() const override {

@@ -29,6 +29,7 @@ struct app_params {
     int bounces = 500;
     int resolution = 500;
     string output = "out";
+    string reference = "";
     bool infinite = false;
     bool embree = false;
     bool save_reference = false;
@@ -42,15 +43,16 @@ void parse_cli(app_params& params, int argc, const char** argv) {
         "bounces", params.bounces, "Number of Bounces.", { 1, numeric_limits<int>::max() });
     yocto::add_option(cli, "resolution", params.resolution, "Image Resolution.", { 1, 4096 });
     yocto::add_option(cli, "output", params.output, "Output Filename.");
+    yocto::add_option(cli, "reference", params.reference, "Reference image filename.");
     yocto::add_option(cli, "infinite", params.infinite, "Render forever.");
     yocto::add_option(cli, "embree", params.embree, "Use Embree.");
     yocto::add_option(cli, "save_ref", params.save_reference, "Save Reference as reference.raw");
     yocto::parse_cli(cli, argc, argv);
 }
 
-void dragon_scene(shared_ptr<hittable_list> objects, bool embree, bool scattering_medium = false) {
+void dragon_scene(hittable_list& objects, bool embree, bool scattering_medium = false) {
     auto material_ground = make_shared<lambertian>(color(0.6));
-    objects->add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects.add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
@@ -70,12 +72,12 @@ void dragon_scene(shared_ptr<hittable_list> objects, bool embree, bool scatterin
         yocto::rotation_frame(toYocto(unit_vector({ 1.0f, 0.0f, -1.0f })), yocto::radians(-2.0f)) *
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
     auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame, embree);
-    objects->add(dragon);
+    objects.add(dragon);
 }
 
-void save_image(shared_ptr<yocto::color_image> image, string filename) {
+void save_image(const yocto::color_image& image, string filename) {
     auto error = string{};
-    if (!save_image(filename, *image, error))
+    if (!save_image(filename, image, error))
         yocto::print_fatal("Failed to save image: " + error);
 }
 
@@ -86,10 +88,10 @@ void single_pass(shared_ptr<tracer> pt, const app_params& params, int pass) {
 
 }
 
-void parallel_render(shared_ptr<tracer> pt, const app_params& params, int pass) {
+void parallel_render(tracer& pt, const app_params& params, int pass) {
     yocto::print_progress_begin("Rendering Pass " + to_string(pass), params.samples);
     for (auto i : yocto::range(params.samples)) {
-        pt->RenderParallel(1);
+        pt.RenderParallel(1);
         yocto::print_progress_next();
     }
 }
@@ -111,12 +113,11 @@ int main(int argc, const char* argv[]) {
     const auto aspect_ratio = 1.0 / 1.0;
     const int image_width = params.resolution;
     const int image_height = static_cast<int>(image_width / aspect_ratio);
-    const int max_depth = params.bounces;
+    const unsigned max_depth = params.bounces;
 
     // World
 
-    auto world = make_shared<hittable_list>();
-    auto light = shared_ptr<hittable>{};
+    hittable_list world;
 
     point3 lookfrom;
     point3 lookat;
@@ -137,24 +138,23 @@ int main(int argc, const char* argv[]) {
     // Camera
     vec3 vup{ 0, 1, 0 };
 
-    auto cam = make_shared<camera>(lookfrom, lookat, vup, vfov, aspect_ratio, aperture);
-    auto image = make_shared<yocto::color_image>(yocto::make_image(image_width, image_height, false));
+    camera cam{ lookfrom, lookat, vup, vfov, aspect_ratio, aperture };
+    auto image = yocto::make_image(image_width, image_height, false);
 
-    shared_ptr<EnvMap> envmap = nullptr;
+    unique_ptr<EnvMap> envmap = nullptr;
     if (use_envmap) {
         auto hdr_filename = "hdrs/large_corridor_4k.exr";
-        envmap = make_shared<EnvMap>(hdr_filename);
+        envmap = make_unique<EnvMap>(hdr_filename);
     }
 
     // Render
     scene_desc scene{
         background,
         world,
-        light,
-        envmap
+        envmap.get()
     };
     unsigned rr_depth = russian_roulette ? 3 : max_depth;
-    auto pt = make_shared<pathtracer>(cam, image, scene, max_depth, rr_depth);
+    pathtracer pt{ cam, image, scene, max_depth, rr_depth };
     if (!russian_roulette)
         yocto::print_info("WARNING! Russian Roulette is disabled");
 
@@ -173,8 +173,17 @@ int main(int argc, const char* argv[]) {
     }
 
     if (params.save_reference) {
-        RawData raw(image->width, image->height);
-        pt->getRawData(raw);
+        RawData raw(image.width, image.height);
+        pt.getRawData(raw);
         raw.saveToFile("reference.raw");
+    }
+
+    if (!params.reference.empty()) {
+        yocto::print_info("comparing with reference image");
+        RawData raw(image.width, image.height);
+        pt.getRawData(raw);
+
+        auto ref = make_shared<RawData>(params.reference);
+        yocto::print_info("RMSE = " + std::to_string(raw.rmse(ref)));
     }
 }

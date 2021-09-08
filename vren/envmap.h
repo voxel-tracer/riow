@@ -54,9 +54,9 @@ public:
         return prob / angle;
     }
 
-    virtual vec3 generate(shared_ptr<rnd> rng) override {
+    virtual vec3 generate(rnd& rng) override {
         // pick a random pixel from the env map according to the CDF
-        auto idx = yocto::sample_discrete(elements_cdf, (float)rng->random_double());
+        auto idx = yocto::sample_discrete(elements_cdf, (float)rng.random_double());
         // compute normalized uv coordinates of the pixel's center
         auto uv = yocto::vec2f{
             ((idx % texture.width) + 0.5f) / texture.width,

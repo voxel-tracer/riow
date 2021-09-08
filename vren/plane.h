@@ -28,7 +28,7 @@ public:
         rec.u = dot(rec.p, uv_onb.u());
         rec.v = dot(rec.p, uv_onb.v());
 
-        rec.mat_ptr = mat_ptr;
+        rec.mat_ptr = mat_ptr.get();
 
         return true;
     }

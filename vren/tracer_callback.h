@@ -191,7 +191,7 @@ namespace callback {
 
     class SpecularScatter : public Scatter {
     public:
-        SpecularScatter(const vec3& d, hit_record rec, scatter_record srec) : 
+        SpecularScatter(const vec3& d, hit_record rec, const scatter_record& srec) : 
             Scatter("specular", d), rec(rec), srec(srec) {}
 
         virtual std::ostream& digest(std::ostream& o) const override {
@@ -200,7 +200,7 @@ namespace callback {
                 ", dot(scatter.dir, norm) = " << dot(d, rec.normal) << ")";
         }
 
-        static event_ptr make(const vec3& d, hit_record rec, scatter_record srec) { 
+        static event_ptr make(const vec3& d, hit_record rec, const scatter_record& srec) { 
             return std::make_shared<SpecularScatter>(d, rec, srec); 
         }
 

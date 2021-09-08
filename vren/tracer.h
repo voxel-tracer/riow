@@ -9,10 +9,10 @@
 class tracer {
 public:
     // TODO add a parallel flag instead of a separate method
-    virtual void Render(unsigned spp, callback::callback_ptr cb = nullptr) = 0;
-    virtual void RenderParallel(unsigned spp, callback::callback_ptr cb = nullptr) {}
+    virtual void Render(unsigned spp, callback::callback* cb = nullptr) = 0;
+    virtual void RenderParallel(unsigned spp, callback::callback* cb = nullptr) {}
 
-    virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback_ptr cb) = 0;
+    virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback* cb) = 0;
 
     virtual unsigned numSamples() const = 0;
     virtual void updateCamera(double from_x, double from_y, double from_z,

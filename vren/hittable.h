@@ -13,7 +13,7 @@ public:
         return 0.0;
     }
 
-    virtual vec3 random(const point3& o, shared_ptr<rnd> rng) {
+    virtual vec3 random(const point3& o, rnd& rng) {
         return vec3(1, 0, 0);
     }
 

@@ -16,7 +16,7 @@ public:
         return name;
     }
 
-    virtual vec3 random(const point3& o, shared_ptr<rnd> rng) override;
+    virtual vec3 random(const point3& o, rnd& rng) override;
 
 private:
     static void get_sphere_uv(const point3& p, double& u, double& v) {
@@ -62,7 +62,7 @@ bool sphere::hit(const ray& r, double t_min, double t_max, hit_record& rec) cons
     vec3 outward_normal = (rec.p - center) / radius;
     rec.set_face_normal(r, outward_normal);
     get_sphere_uv(outward_normal, rec.u, rec.v);
-    rec.mat_ptr = mat_ptr;
+    rec.mat_ptr = mat_ptr.get();
 
     return true;
 }
@@ -78,9 +78,9 @@ double sphere::pdf_value(const point3& o, const vec3& v) const {
     return  1 / solid_angle;
 }
 
-vec3 sphere::random(const point3& o, shared_ptr<rnd> rng) {
+vec3 sphere::random(const point3& o, rnd& rng) {
     vec3 direction = center - o;
     auto distance_squared = direction.length_squared();
     onb uvw(direction);
-    return uvw.local(rng->random_to_sphere(radius, distance_squared));
+    return uvw.local(rng.random_to_sphere(radius, distance_squared));
 }

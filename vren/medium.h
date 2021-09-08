@@ -5,11 +5,11 @@
 
 class Medium {
 public:
-    virtual double sampleDistance(shared_ptr<rnd> rng, double distance) const {
+    virtual double sampleDistance(rnd& rng, double distance) const {
         return distance;
     }
 
-    virtual vec3 sampleScatterDirection(shared_ptr<rnd> rng, const vec3& direction) const {
+    virtual vec3 sampleScatterDirection(rnd& rng, const vec3& direction) const {
         return direction;
     }
 
@@ -40,16 +40,16 @@ class IsotropicScatteringMedium : public NoScatterMedium {
 public:
     IsotropicScatteringMedium(color c, double ad, double sd) : NoScatterMedium(c, ad), scatteringDistance(sd) {}
 
-    virtual double sampleDistance(shared_ptr<rnd> rng, double distance) const override {
-        double d = -std::log(rng->random_double()) * scatteringDistance;
+    virtual double sampleDistance(rnd& rng, double distance) const override {
+        double d = -std::log(rng.random_double()) * scatteringDistance;
         if (d > distance) {
             return distance;
         }
         return d;
     }
 
-    virtual vec3 sampleScatterDirection(shared_ptr<rnd> rng, const vec3& direction) const override {
-        return rng->random_in_unit_sphere();
+    virtual vec3 sampleScatterDirection(rnd& rng, const vec3& direction) const override {
+        return rng.random_in_unit_sphere();
     }
 
     double scatteringDistance;

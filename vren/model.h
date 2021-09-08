@@ -89,7 +89,7 @@ public:
         rec.u = isec.uv.x;
         rec.v = isec.uv.y;
         rec.element = isec.element;
-        rec.mat_ptr = mat_ptr;
+        rec.mat_ptr = mat_ptr.get();
 
         return true;
     }
