@@ -33,6 +33,7 @@ struct app_params {
     bool infinite = false;
     bool embree = false;
     bool save_reference = false;
+    bool sss = false;
 };
 
 void parse_cli(app_params& params, int argc, const char** argv) {
@@ -47,6 +48,7 @@ void parse_cli(app_params& params, int argc, const char** argv) {
     yocto::add_option(cli, "infinite", params.infinite, "Render forever.");
     yocto::add_option(cli, "embree", params.embree, "Use Embree.");
     yocto::add_option(cli, "save_ref", params.save_reference, "Save Reference as reference.raw");
+    yocto::add_option(cli, "sss", params.sss, "Use Subsufrace Scatteting material.");
     yocto::parse_cli(cli, argc, argv);
 }
 
@@ -128,7 +130,7 @@ int main(int argc, const char* argv[]) {
     bool add_light = false;
     bool russian_roulette = true;
 
-    dragon_scene(world, params.embree, false);
+    dragon_scene(world, params.embree, params.sss);
     lookfrom = { 2.27155, 7.99803, 0.244723 };
     lookat = point3(-0.5, 0, -0.5);
     vfov = 20.0;
