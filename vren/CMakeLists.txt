@@ -26,6 +26,7 @@ add_executable(vren
   sphere.h
   stb_image.h
   texture.h
+  thread_pool.hpp
   tracer.h
   tracer_callback.h
   vec3.h

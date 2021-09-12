@@ -1,10 +1,13 @@
 #pragma once
+
 #include "rtweekend.h"
 #include "tracer.h"
 #include "color.h"
 
-#include <yocto/yocto_parallel.h>
+#include "thread_pool.hpp"
 #include "envmap.h"
+
+#include <atomic>
 
 
 struct scene_desc {
@@ -31,6 +34,7 @@ private:
     //TODO use RawData instead
     std::vector<color> rawData;
     std::vector<unsigned> seeds;
+    thread_pool pool;
 
     color ray_color(const ray& r, rnd& rng, callback::callback* cb) {
         const double epsilon = 0.001;
@@ -274,14 +278,14 @@ public:
         : cam(c), image(im), scene(sc), max_depth(md), rroulette_depth(rrd),
         rawData(im.width * im.height, color()), seeds(im.width * im.height, 0) {
         initSeeds();
+
+        yocto::print_info("thread pool size = " + std::to_string(pool.get_thread_count()));
     }
 
     virtual void Render(unsigned spp, callback::callback* cb) override {
         samples += spp; // needed to properly average the samples
 
         for (auto j = image.height - 1; j >= 0; --j) {
-            // TODO implement a callback that tracks progress
-            //std::cerr << "\rScanlines remaining: " << j << ' ' << std::flush;
             for (auto i = 0; i != image.width; ++i) {
                 const unsigned idx = i + j * image.width;
 
@@ -301,17 +305,30 @@ public:
 
     virtual void RenderParallel(unsigned spp, callback::callback* cb) override {
         samples += spp;
-        yocto::parallel_for(image.width, image.height, [&](unsigned i, unsigned j) {
-            const unsigned idx = i + j * image.width;
 
-            color clr = RenderPixel(i, j, spp, cb);
-            if (cb) cb->alterPixelColor(clr);
-            rawData[idx] += clr;
+        std::atomic_int next_line(0);
+        for (auto t = 0; t < pool.get_thread_count(); ++t) {
+            pool.push_task([&] {
+                while (true) {
+                    auto j = next_line.fetch_add(1);
+                    if (j >= image.height) break;
 
-            if (cb && cb->terminate()) return;
+                    for (auto i = 0; i < image.width; ++i) {
+                        const unsigned idx = i + j * image.width;
 
-            yocto::set_pixel(image, i, (image.height - 1) - j, convert(rawData[idx], samples));
-        });
+                        color clr = RenderPixel(i, j, spp, cb);
+                        if (cb) cb->alterPixelColor(clr);
+                        rawData[idx] += clr;
+
+                        if (cb && cb->terminate()) return;
+
+                        yocto::set_pixel(image, i, (image.height - 1) - j, convert(rawData[idx], samples));
+                    }
+                }
+            });
+        }
+
+        pool.wait_for_tasks();
     }
 
     virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback* cb) override {

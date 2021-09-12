@@ -28,6 +28,7 @@ using namespace std;
 
 struct app_params {
     int samples = 128;
+    int samples_per_iter = 1;
     int bounces = 500;
     int resolution = 500;
     string output = "out";
@@ -44,7 +45,9 @@ void parse_cli(app_params& params, int argc, const char** argv) {
     auto cli = yocto::make_cli("vren", "High Quality Renderer");
     yocto::add_option(cli, 
         "samples", params.samples, "Number of Samples.", { 1, numeric_limits<int>::max() });
-    yocto::add_option(cli, 
+    yocto::add_option(cli,
+        "spi", params.samples_per_iter, "Samples per Iteration.", { 1, numeric_limits<int>::max() });
+    yocto::add_option(cli,
         "bounces", params.bounces, "Number of Bounces.", { 1, numeric_limits<int>::max() });
     yocto::add_option(cli, "resolution", params.resolution, "Image Resolution.", { 1, 4096 });
     yocto::add_option(cli, "output", params.output, "Output Filename.");
@@ -105,7 +108,7 @@ void single_pass(shared_ptr<tracer> pt, const app_params& params, int pass) {
 void parallel_render(tracer& pt, const app_params& params, int pass) {
     yocto::print_progress_begin("Rendering Pass " + to_string(pass), params.samples);
     for (auto i : yocto::range(params.samples)) {
-        pt.RenderParallel(1);
+        pt.RenderParallel(params.samples_per_iter);
         yocto::print_progress_next();
     }
 }
@@ -120,8 +123,6 @@ int main(int argc, const char* argv[]) {
     app_params params{};
     parse_cli(params, argc, argv);
     
-    yocto::print_info("hardware_concurrency = " + to_string(thread::hardware_concurrency()));
-
     // Image
 
     const auto aspect_ratio = 1.0 / 1.0;
