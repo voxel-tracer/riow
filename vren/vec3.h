@@ -115,6 +115,10 @@ inline double max(const vec3& v) {
     return std::max(v.x(), std::max(v.y(), v.z()));
 }
 
+inline vec3 exp(const vec3& v) {
+    return { std::exp(v[0]), std::exp(v[1]), std::exp(v[2]) };
+}
+
 inline vec3 pow(const vec3& v, float a) {
     return { std::pow(v[0], a), std::pow(v[1], a), std::pow(v[2], a) };
 }

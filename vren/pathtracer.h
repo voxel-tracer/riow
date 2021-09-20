@@ -85,17 +85,16 @@ private:
             // take current medium into account
             if (medium) {
                 // check if there is an internal scattering
-                double distance = medium->sampleDistance(rng, rec.t);
-                color transmission = medium->transmission(distance);
+                double distance;
+                color transmission = medium->SampleDistance(rec.t, distance, rng);
                 throughput *= transmission;
 
                 if (cb) (*cb)(callback::Transmitted::make(distance, transmission));
 
                 if ((distance + epsilon) < rec.t) {
-                    ray scattered = ray(
-                        curRay.at(distance),
-                        medium->sampleScatterDirection(rng, curRay.direction())
-                    );
+                    vec3 sampled;
+                    medium->SampleDirection(curRay.direction(), sampled, rng);
+                    ray scattered = ray(curRay.at(distance), sampled);
 
                     // if the scattered ray is too close to the surface it is possible
                     // it will miss it, in that case ignore the medium scattering

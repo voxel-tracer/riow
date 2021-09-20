@@ -40,7 +40,7 @@ public:
 */
 class passthrough : public material {
 private:
-    std::shared_ptr<Medium> medium = std::make_shared<InvisibleMedium>();
+    std::shared_ptr<Medium> medium = std::make_shared<Medium>();
 
 public:
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, rnd& rng) const override {
@@ -93,7 +93,7 @@ public:
 class dielectric: public material {
 public:
     dielectric(double index_of_refraction, shared_ptr<Medium> m = {}) : ir(index_of_refraction) {
-        medium = m ? m : std::make_shared<InvisibleMedium>();
+        medium = m ? m : std::make_shared<Medium>();
     }
 
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, rnd& rng) const override {

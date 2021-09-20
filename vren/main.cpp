@@ -10,6 +10,7 @@
 #include "pdf.h"
 #include "callbacks.h"
 #include "model.h"
+#include "measured_mediums.h"
 
 #include <iostream>
 #include <functional>
@@ -36,9 +37,8 @@ struct app_params {
     bool infinite = false;
     bool embree = false;
     bool save_reference = false;
-    bool sss = false;
-    float medium_ad = 0.25f;
-    float medium_sd = 0.025f;
+    string sss = "Apple";
+    float sss_scale = 1.0f;
 };
 
 void parse_cli(app_params& params, int argc, const char** argv) {
@@ -55,9 +55,8 @@ void parse_cli(app_params& params, int argc, const char** argv) {
     yocto::add_option(cli, "infinite", params.infinite, "Render forever.");
     yocto::add_option(cli, "embree", params.embree, "Use Embree.");
     yocto::add_option(cli, "save_ref", params.save_reference, "Save Reference as reference.raw");
-    yocto::add_option(cli, "sss", params.sss, "Use Subsufrace Scatteting material.");
-    yocto::add_option(cli, "med_ad", params.medium_ad, "Medium Absorption Distance.");
-    yocto::add_option(cli, "med_sd", params.medium_sd, "Medium Scattering Distance.");
+    yocto::add_option(cli, "sss", params.sss, "Subsufrace Scatteting material name.");
+    yocto::add_option(cli, "sss_scale", params.sss_scale, "Subsufrace Scatteting Scale.");
     yocto::parse_cli(cli, argc, argv);
 }
 
@@ -65,14 +64,11 @@ void dragon_scene(hittable_list& objects, const app_params& params) {
     auto material_ground = make_shared<lambertian>(color(0.6));
     objects.add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
-    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
-    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
-
-    shared_ptr<Medium> medium{};
-    if (params.sss)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, params.medium_ad, params.medium_sd);
-    else
-        medium = make_shared<NoScatterMedium>(glass_color, params.medium_ad);
+    vec3 sigma_a, sigma_s;
+    if (!GetMediumScatteringProperties(params.sss, sigma_a, sigma_s)) {
+        yocto::print_fatal("Unknown material " + params.sss);
+    }
+    auto medium = make_shared<HomogeneousMedium>(sigma_a * params.sss_scale, sigma_s * params.sss_scale);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
 
     auto frame =
@@ -122,7 +118,7 @@ int main(int argc, const char* argv[]) {
     // command line paramers
     app_params params{};
     parse_cli(params, argc, argv);
-    
+
     // Image
 
     const auto aspect_ratio = 1.0 / 1.0;
