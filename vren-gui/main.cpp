@@ -13,7 +13,7 @@
 #include "pdf.h"
 #include "callbacks.h"
 #include "model.h"
-#include "bvh_model.h"
+#include "measured_mediums.h"
 
 #include <iostream>
 #include <functional>
@@ -28,365 +28,99 @@
 
 using namespace std;
 
-void three_spheres(shared_ptr<hittable_list> objects) {
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
-
-    auto earth_texture = make_shared<image_texture>("earthmap.jpg");
-    auto material_center = make_shared<lambertian>(earth_texture);
-    auto material_right = make_shared<dielectric>(1.5);
-    auto material_left = make_shared<metal>(color(0.8, 0.6, 0.2), 0.0);
-
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
-
-    objects->add(make_shared<sphere>("center_ball", point3(0.0, 0.0, -1.0), 0.5, material_center));
-
-    objects->add(make_shared<sphere>("left_ball", point3(-1.0, 0.0, -1.0), 0.5, material_left));
-
-    objects->add(make_shared<sphere>("right_ball_inner", point3(1.0, 0.0, -1.0), -0.49, material_right));
-    objects->add(make_shared<sphere>("right_ball_outer", point3(1.0, 0.0, -1.0), 0.5, material_right));
-}
-
-void multiple_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable>& light, bool add_light) {
-    // ground
-    auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
-
-    {
-        // red ball
-        auto medium = make_shared<IsotropicScatteringMedium>(color(.8, .3, .3), .25, 2.0);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        auto ball = make_shared<sphere>("red_ball", point3(-1.0, 0.1, -1.0), 0.5, glass);
-        objects->add(ball);
-    }
-
-    {
-        // green ball
-        auto medium = make_shared<IsotropicScatteringMedium>(color(.3, .8, .3), .25, 2.0);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        auto ball = make_shared<sphere>("green_ball", point3(0.0, 0.1, -1.0), 0.5, glass);
-        objects->add(ball);
-    }
-
-    {
-        // blue ball
-        auto medium = make_shared<IsotropicScatteringMedium>(color(.3, .3, .8), .25, 2.0);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        auto ball = make_shared<sphere>("blue_ball", point3(1.0, 0.1, -1.0), 0.5, glass);
-        objects->add(ball);
-    }
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(20.0));
-        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light);
-    }
-}
-
-void two_glass_balls(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
-    // ground
-    auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
-
-    //auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
-    //auto glass = make_shared<dielectric>(1.35, ketchup);
-    color clr = { .98, .0061, .0033 };
-    double ad = 0.005;
-    double sd = 0.5;
-    {
-        // red ball without subsurface scattering
-        auto medium = make_shared<NoScatterMedium>(clr, ad);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        objects->add(make_shared<sphere>("glass_ball", point3(-0.5, 0.1, -1.0), 0.5, glass));
-    }
-
-    {
-        // red ball with subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.1, -1.0), 0.5, glass));
-    }
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(20.0));
-        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.1, material_light);
-        objects->add(light);
-    }
-}
-
-void two_mediums(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
-    // ground
-    //auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
-    //auto material_ground = make_shared<lambertian>(checker);
-    auto material_ground = make_shared<lambertian>(color(0.4));
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.501, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
-
-    color clr = { .98, .0061, .0033 };
-    double ad = 0.005;
-    double sd = 0.5;
-    {
-        // white diffuse scattering with red subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        auto diffuse = make_shared<diffuse_subsurface_scattering>(clr, medium);
-
-        objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.0, -1.0), 0.5, diffuse));
-    }
-
-    {
-        // red ball with subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.0, -1.0), 0.5, glass));
-    }
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(20.0));
-        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light);
-    }
-}
-
-void dielectric_and_sss(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
-    // ground
-    //auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
-    //auto material_ground = make_shared<lambertian>(checker);
-    auto material_ground = make_shared<lambertian>(color(1.0));
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.501, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
-
-    color clr = { .98, .0061, .0033 };
-    double ad = 0.005;
-    double sd = 0.5;
-    {
-        // white diffuse scattering with red subsurface scattering
-        auto medium = make_shared<NoScatterMedium>(clr, ad);
-        color clr = { 1.0, 1.0, 1.0 };
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        objects->add(make_shared<sphere>("dielectric_ball", point3(-0.5, 0.0, -1.0), 0.5, glass));
-    }
-
-    {
-        // red ball with subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        auto glass = make_shared<dielectric>(1.35, medium);
-
-        objects->add(make_shared<sphere>("sss_ball", point3(0.5, 0.0, -1.0), 0.5, glass));
-    }
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(20.0));
-        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light);
-    }
-}
-
-void diffuse_and_sss(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
-    // ground
-    //auto checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(0.9, 0.9, 0.9));
-    //auto material_ground = make_shared<lambertian>(checker);
-    auto material_ground = make_shared<lambertian>(color(0.4));
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.501, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
-
-    color clr = { .98, .0061, .0033 };
-    double ad = 0.005;
-    double sd = 0.5;
-    {
-        // white diffuse scattering with red subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, ad, sd);
-        auto diffuse = make_shared<diffuse_subsurface_scattering>(clr, medium);
-
-        objects->add(make_shared<sphere>("diffuse_sss_ball", point3(-0.5, 0.0, -1.0), 0.5, diffuse));
-    }
-
-    {
-        // white diffuse ball
-        auto white_diffuse = make_shared<lambertian>(color(1.0, 1.0, 1.0));
-
-        objects->add(make_shared<sphere>("diffuse_ball", point3(0.5, 0.0, -1.0), 0.5, white_diffuse));
-    }
-
-    if (add_light) {
-        auto material_light = make_shared<diffuse_light>(color(20.0));
-        light = make_shared<sphere>("light", point3(0.0, 1.5, 1.0), 0.5, material_light);
-        objects->add(light);
-    }
-}
-
-void simple_box(shared_ptr<hittable_list> objects, shared_ptr<hittable> light, bool add_light) {
+void simple_box(hittable_list& objects, shared_ptr<hittable> light, bool add_light) {
 
     // auto material_ground = make_shared<lambertian>(color(0.4));
     shared_ptr<texture> checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
     auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.101, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects.add(make_shared<plane>("floor", point3(0.0, -0.101, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     shared_ptr<material> mat;
 
     int type = 3;
     switch (type) {
-    case 0: {
-        // red diffuse
-        mat = make_shared<lambertian>(color(0.5, 0.1, 0.1));
-        break;
-    }
-    case 1: {
-        // dark grey diffuse
-        mat = make_shared<lambertian>(color(0.1));
-        break;
-    }
-    case 2: {
-        // red glass
-        auto ketchup = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 1.0, 9.0);
-        mat = make_shared<dielectric>(1.35, ketchup);
-        break;
-    }
-    case 3: {
-        // pure glass
-        mat = make_shared<dielectric>(1.2);
-        break;
-    }
-    case 4: {
-        // white diffuse scattering with red subsurface scattering
-        color clr(.98, .0061, .0033);
-        auto medium = make_shared<IsotropicScatteringMedium>(clr, 0.005, 0.5);
-        mat = make_shared<diffuse_subsurface_scattering>(clr, medium);
-        break;
-    }
-    case 5: {
-        // red ball with subsurface scattering
-        auto medium = make_shared<IsotropicScatteringMedium>(color(.98, .0061, .0033), 0.005, 0.5);
-        mat = make_shared<dielectric>(1.5, medium);
-    }
+        case 0: {
+            // red diffuse
+            mat = make_shared<lambertian>(color(0.5, 0.1, 0.1));
+            break;
+        }
+        case 1: {
+            // dark grey diffuse
+            mat = make_shared<lambertian>(color(0.1));
+            break;
+        }
+        case 2: {
+            // glass with ketchup
+            vec3 sigma_s, sigma_a;
+            GetMediumScatteringProperties("Ketchup", sigma_a, sigma_s);
+            auto scale = 100.0f;
+            auto ketchup = make_shared<HomogeneousMedium>(sigma_a * scale, sigma_s * scale);
+            mat = make_shared<dielectric>(1.35, ketchup);
+            break;
+        }
+        case 3: {
+            // passthrough with ketchup
+            vec3 sigma_s, sigma_a;
+            GetMediumScatteringProperties("Ketchup", sigma_a, sigma_s);
+            auto scale = 100.0f;
+            auto ketchup = make_shared<HomogeneousMedium>(sigma_a * scale, sigma_s * scale);
+            mat = make_shared<passthrough>(ketchup);
+            break;
+        }
     }
 
-    objects->add(make_shared<box>("base", point3(), vec3(1.0, 0.1, 1.0), mat));
+    objects.add(make_shared<box>("base", point3(), vec3(1.0, 0.1, 1.0), mat));
 
     if (add_light) {
         auto material_light = make_shared<diffuse_light>(color(20.0));
         light = make_shared<sphere>("light", point3(0.0, 15, 1.0), 0.5, material_light);
-        objects->add(light);
+        objects.add(light);
     }
 
 }
 
-void glass_panels(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+void glass_panels(hittable_list& objects, bool scattering_medium = false) {
     // white diffuse floor
     auto material_ground = make_shared<lambertian>(color(0.8));
     //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1, 0.1, 0.1), color(1.0, 1.0, 1.0));
     //auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects.add(make_shared<plane>("floor", point3(0.0, -0.005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
 
     shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.05);
+    if (scattering_medium) {
+        vec3 sigma_s, sigma_a;
+        GetMediumScatteringProperties("Ketchup", sigma_a, sigma_s);
+        auto scale = 1.0f;
+        medium = make_shared<HomogeneousMedium>(sigma_a * scale, sigma_s * scale);
+    }
     else 
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
 
     for (auto i : yocto::range(5)) {
-        objects->add(make_shared<box>("panel1", point3(0.0, 0.5, 1.0 - i*0.5), vec3(1.0, 1.0, 0.1), tinted_glass));
+        objects.add(make_shared<box>("panel1", point3(0.0, 0.5, 1.0 - i*0.5), vec3(1.0, 1.0, 0.1), tinted_glass));
     }
 }
 
-void glass_ball(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
-    //auto material_ground = make_shared<lambertian>(color(0.8));
-    shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
-    auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
-
-    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
-    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
-
-    shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.05);
-    else
-        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
-    auto tinted_glass = make_shared<dielectric>(1.5, medium);
-    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.0, -1.0), 0.5, tinted_glass);
-
-    objects->add(ball);
-}
-
-void monkey_debug(shared_ptr<hittable_list> objects) {
-    // no floor
-    // passthrough material
-    auto m = make_shared<passthrough>();
-    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", m);
-    objects->add(monkey);
-}
-
-void monkey_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
-    auto material_ground = make_shared<lambertian>(color(0.1));
-    //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
-    //auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -1.005, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
-
-    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
-    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
-
-    shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
-    else
-        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
-    auto tinted_glass = make_shared<dielectric>(1.5, medium);
-
-    //auto m = make_shared<metal>(color(0.97, 0.96, 0.91));
-    auto m = make_shared<lambertian>(color(glass_color));
-    auto monkey = make_shared<model>("models/monkey-lowpoly.obj", tinted_glass);
-    objects->add(monkey);
-}
-
-void dragon_debug(shared_ptr<hittable_list> objects) {
-    // no floor
-
-    // passthrough material
-    //auto m = make_shared<passthrough>();
-
-    // complex material
-    bool scattering_medium = true;
-    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
-    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
-    shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
-    else
-        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
-    auto m = make_shared<dielectric>(1.5, medium);
-
-    auto frame = 
-        yocto::translation_frame({ -0.5f, 0.0f, 0.0f }) *
-        yocto::rotation_frame({ 0.0f, 1.0f, 0.0f }, yocto::radians(180.0f)) *
-        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, yocto::radians(-35.0f)) *
-        yocto::rotation_frame({ 0.0f, 0.0f, 1.0f }, yocto::radians(90.0f)) *
-        yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
-    auto dragon = make_shared<model>("models/dragon_remeshed.ply", m, frame);
-    objects->add(dragon);
-}
-
-void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+void dragon_scene(hittable_list& objects, bool scattering_medium = false) {
     auto material_ground = make_shared<lambertian>(color(0.6));
     //shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
     //auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects.add(make_shared<plane>("floor", point3(0.0, 0.1, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
 
     shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.25, 0.025);
+    if (scattering_medium) {
+        vec3 sigma_s, sigma_a;
+        GetMediumScatteringProperties("Ketchup", sigma_a, sigma_s);
+        auto scale = 1.0f;
+        medium = make_shared<HomogeneousMedium>(sigma_a * scale, sigma_s * scale);
+    }
     else
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto tinted_glass = make_shared<dielectric>(1.5, medium);
@@ -403,21 +137,25 @@ void dragon_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fa
         yocto::scaling_frame({ 1 / 100.0f, 1 / 100.0f, 1 / 100.0f });
     auto dragon = make_shared<model>("models/dragon_remeshed.ply", tinted_glass, frame);
     //auto dragon = make_shared<BVHModel>("models/dragon_remeshed.ply", tinted_glass, frame);
-    objects->add(dragon);
+    objects.add(dragon);
 }
 
-void monk_scene(shared_ptr<hittable_list> objects, bool scattering_medium = false) {
+void monk_scene(hittable_list& objects, bool scattering_medium = false) {
     //auto material_ground = make_shared<lambertian>(color(0.75));
     shared_ptr<texture> checker = make_shared<checker_texture>(color(0.1), color(0.8));
     auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
+    objects.add(make_shared<plane>("floor", point3(0.0, -0.505, 0.0), vec3(0.0, 1.0, 0.0), material_ground));
 
     float c = 1.0;  // this allows us to adjust the filter color without changing the hue
     color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
 
     shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.05, 0.025);
+    if (scattering_medium) {
+        vec3 sigma_s, sigma_a;
+        GetMediumScatteringProperties("Ketchup", sigma_a, sigma_s);
+        auto scale = 1.0f;
+        medium = make_shared<HomogeneousMedium>(sigma_a * scale, sigma_s * scale);
+    }
     else
         medium = make_shared<NoScatterMedium>(glass_color, 0.25);
     auto monk_mat = make_shared<dielectric>(1.5, medium);
@@ -429,45 +167,10 @@ void monk_scene(shared_ptr<hittable_list> objects, bool scattering_medium = fals
         yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2) *
         yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });    
     auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", monk_mat, frame);
-    objects->add(monk);
+    objects.add(monk);
 }
 
-void monk_debug(shared_ptr<hittable_list> objects) {
-    // no floor
-    // passthrough material
-    //auto m = make_shared<passthrough>();
-
-    // complex material
-    bool scattering_medium = false;
-    float c = 1.0;  // this allows us to adjust the filter color without changing the hue
-    color glass_color(0.27 * c, 0.49 * c, 0.42 * c);
-    shared_ptr<Medium> medium{};
-    if (scattering_medium)
-        medium = make_shared<IsotropicScatteringMedium>(glass_color, 0.1, 0.025);
-    else
-        medium = make_shared<NoScatterMedium>(glass_color, 0.25);
-    auto m = make_shared<dielectric>(1.5, medium);
-
-    auto frame = 
-        yocto::translation_frame(toYocto(point3(0.0, -0.5, -0.5))) *
-        yocto::rotation_frame({ 1.0f, 0.0f, 0.0f }, -yocto::pif / 2) *
-        yocto::scaling_frame({ 0.01f, 0.01f, 0.01f });
-    auto monk = make_shared<model>("models/LuYu-obj/LuYu-obj.obj", m, frame);
-    objects->add(monk);
-}
-
-void metal_ball(shared_ptr<hittable_list> objects) {
-    auto checker = make_shared<checker_texture>(color(0.2, 0.3, 0.1), color(0.9, 0.9, 0.9));
-    auto material_ground = make_shared<lambertian>(checker);
-    objects->add(make_shared<sphere>("floor", point3(0.0, -100.5, -1.0), 100.0, material_ground));
-
-    //auto medium = make_shared<NoScatterMedium>(color(0.8, 0.3, 0.3), 0.25);
-    auto met = make_shared<metal>(color(0.8, 0.6, 0.2), 0.1);
-    auto ball = make_shared<sphere>("glass_ball", point3(0.0, 0.1, -1.0), 0.5, met);
-    objects->add(ball);
-}
-
-shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
+shared_ptr<yocto::scene_model> init_scene(const hittable_list& world) {
     auto scene = make_shared<yocto::scene_model>();
     {
         // 0: sphere shape
@@ -497,7 +200,7 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
         }
         scene->materials.push_back({}); // create a black material directly
 
-        for (auto o : world->objects) {
+        for (auto o : world.objects) {
             if (auto s = dynamic_pointer_cast<sphere>(o)) {
                 if (s->radius > 99.0) continue; // ignore floor sphere
 
@@ -527,13 +230,6 @@ shared_ptr<yocto::scene_model> init_scene(shared_ptr<hittable_list> world) {
                 instance.shape = scene->shapes.size() - 1;
                 scene->instances.push_back(instance);
             }
-            else if (auto m = dynamic_pointer_cast<BVHModel>(o)) {
-                scene->shapes.push_back(m->shape);
-                auto instance = yocto::scene_instance{};
-                instance.shape = 1; // box shape
-                instance.shape = scene->shapes.size() - 1;
-                scene->instances.push_back(instance);
-            }
             else if (auto p = dynamic_pointer_cast<plane>(o)) {
                 // only supports XZ planes for now
                 auto instance = yocto::scene_instance{};
@@ -560,35 +256,35 @@ void save_image(shared_ptr<yocto::color_image> image, string filename) {
 }
 
 void debug_pixel(shared_ptr<tracer> pt, unsigned x, unsigned y, unsigned spp, bool verbose = false) {
-    auto cb = std::make_shared<callback::print_callback>(verbose);
-    pt->DebugPixel(x, y, spp, cb);
+    auto cb = std::make_unique<callback::print_callback>(verbose);
+    pt->DebugPixel(x, y, spp, cb.get());
 }
 
 void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, int stopAtBug = -1) {
     //auto cb = std::make_shared<callback::validate_model>("models/LuYu-obj/LuYu-obj.obj_model");
-    auto cb = std::make_shared<callback::validate_model>("models/dragon_remeshed.ply_model", stopAtBug, true);
+    auto cb = std::make_unique<callback::validate_model>("models/dragon_remeshed.ply_model", stopAtBug, true);
     //auto cb = std::make_shared<callback::highlight_element>(1);
-    pt->Render(spp, cb);
+    pt->Render(spp, cb.get());
     cb->digest(cerr) << std::endl;
 }
 
-void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y, unsigned spp) {
-    // now display a window
-    vec3 lookat = cam->getLookAt();
-    vec3 lookfrom = cam->getLookFrom();
+//void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y, unsigned spp) {
+//    // now display a window
+//    vec3 lookat = cam->getLookAt();
+//    vec3 lookfrom = cam->getLookFrom();
+//
+//    auto s = init_scene(world);
+//    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+//    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+//    auto w = tool::create_window(image, pt, s, at, from);
+//
+//    w->debugPixel(x, y, spp);
+//    w->render();
+//}
 
-    auto s = init_scene(world);
-    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
-    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-    auto w = tool::create_window(image, pt, s, at, from);
-
-    w->debugPixel(x, y, spp);
-    w->render();
-}
-
-void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, int spp) {
-    vec3 lookat = cam->getLookAt();
-    vec3 lookfrom = cam->getLookFrom();
+void render(shared_ptr<tracer> pt, hittable_list& world, camera& cam, yocto::color_image& image, int spp) {
+    vec3 lookat = cam.getLookAt();
+    vec3 lookfrom = cam.getLookFrom();
 
     auto s = init_scene(world);
     auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
@@ -602,8 +298,8 @@ void render(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<c
 
 void offline_render(shared_ptr<tracer> pt, unsigned spp) {
     clock_t start = clock();
-    auto cb = std::make_shared<callback::num_inters_callback>();
-    pt->Render(spp, cb);
+    auto cb = std::make_unique<callback::num_inters_callback>();
+    pt->Render(spp, cb.get());
     clock_t stop = clock();
     double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
     cerr << "Rendering took " << timer_seconds << " seconds.\n" 
@@ -618,31 +314,30 @@ void offline_parallel_render(shared_ptr<tracer> pt, unsigned spp) {
     cerr << "Rendering took " << timer_seconds << " seconds.\n";
 }
 
-void debug_sss(
-        shared_ptr<tracer> pt, 
-        shared_ptr<hittable_list> world, 
-        shared_ptr<camera> cam, 
-        shared_ptr<yocto::color_image> image) {
-    // render the scene offline while collecting the histogram
-    // auto cb = make_shared<callback::num_medium_scatter_histo>(10, 20);
-    std::shared_ptr<callback::callback> cb{};
-    pt->Render(1, cb);
-
-    vec3 lookat = cam->getLookAt();
-    vec3 lookfrom = cam->getLookFrom();
-
-    auto s = init_scene(world);
-    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
-    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-    auto w = tool::create_window(image, pt, s, at, from);
-
-    // quick test
-    //w->showHisto("histogram", cb->getNormalizedBins());
-    w->debugPixel(226, 262, 1024);
-    w->updateCamera( glm::vec3{ -2.27297f, 0.15248f, 1.23364f }, at );
-    w->render(0);
-}
-
+//void debug_sss(
+//        shared_ptr<tracer> pt, 
+//        shared_ptr<hittable_list> world, 
+//        shared_ptr<camera> cam, 
+//        shared_ptr<yocto::color_image> image) {
+//    // render the scene offline while collecting the histogram
+//    // auto cb = make_shared<callback::num_medium_scatter_histo>(10, 20);
+//    std::shared_ptr<callback::callback> cb{};
+//    pt->Render(1, cb.get());
+//
+//    vec3 lookat = cam->getLookAt();
+//    vec3 lookfrom = cam->getLookFrom();
+//
+//    auto s = init_scene(world);
+//    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+//    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+//    auto w = tool::create_window(image, pt, s, at, from);
+//
+//    // quick test
+//    //w->showHisto("histogram", cb->getNormalizedBins());
+//    w->debugPixel(226, 262, 1024);
+//    w->updateCamera( glm::vec3{ -2.27297f, 0.15248f, 1.23364f }, at );
+//    w->render(0);
+//}
 
 void test_envmap(std::string hdr_filename, std::shared_ptr<EnvMap> envmap) {
     // let's convert envmap to LDR image
@@ -651,7 +346,7 @@ void test_envmap(std::string hdr_filename, std::shared_ptr<EnvMap> envmap) {
     auto ldr = yocto::tonemap_image(hdr, 0.25f, true);
 
     // let's sample a bunch of points and plot them on the ldr image
-    auto rng = std::make_shared<xor_rnd>();
+    xor_rnd rng;
     for (auto i : yocto::range(10000)) {
         auto sample = envmap->pdf->generate(rng);
         auto ij = dir2ij(sample, hdr.width, hdr.height);
@@ -677,7 +372,7 @@ int main()
 
     // World
 
-    auto world = make_shared<hittable_list>();
+    hittable_list world;
     auto light = shared_ptr<hittable>{};
 
     point3 lookfrom;
@@ -689,48 +384,8 @@ int main()
     bool add_light = false;
     bool russian_roulette = true;
 
-    switch (15) {
+    switch (3) {
         case 0:
-            two_mediums(world, light, add_light);
-            lookfrom = point3(3.40, 2.75, 3.12);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(1.0, 1.0, 1.0);
-            break;
-        case 1:
-            diffuse_and_sss(world, light, add_light);
-            lookfrom = point3(3.40, 2.75, 3.12);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(1.0, 1.0, 1.0);
-            break;
-        case 2:
-            dielectric_and_sss(world, light, add_light);
-            lookfrom = point3(3.40, 2.75, 3.12);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(1.0, 1.0, 1.0);
-            break;
-        case 3:
-            two_glass_balls(world, light, add_light);
-            lookfrom = point3(0.09, 3.44, 4.15);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(1.0, 1.0, 1.0);
-            break;
-        case 5:
-            glass_ball(world, true);
-            lookfrom = point3(3, 2, 2);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(0.6, 0.6, 0.7);
-            break;
-        case 6:
             simple_box(world, light, add_light);
             //lookfrom = point3(3, 2, 2);
             lookfrom = point3(3.68871, 1.71156, 3.11611);
@@ -739,39 +394,7 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-        case 7:
-            three_spheres(world);
-            lookfrom = point3(3, 2, 2);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(0.6, 0.6, 0.7);
-            break;
-        case 8:
-            metal_ball(world);
-            lookfrom = point3(3, 2, 2);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(0.6, 0.6, 0.7);
-            break;
-        case 9:
-            multiple_glass_balls(world, light, add_light);
-            lookfrom = point3(3, 2, 2);
-            lookat = point3(0, 0, -1);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(0.6, 0.6, 0.7);
-            break;
-        case 10:
-            monkey_scene(world, true);
-            lookfrom = point3(2.95012, 3.84593, 6.67006);
-            lookat = point3(0, 0.05, 0);
-            vfov = 20.0;
-            aperture = 0.1;
-            background = color(0.6, 0.6, 0.7);
-            break;
-        case 11:
+        case 1:
             monk_scene(world, true);
             lookfrom = point3(-8.49824, 3.01965, -2.37236);
             lookat = point3(0, 0.75, -0.75);
@@ -779,7 +402,7 @@ int main()
             aperture = 0.1;
             background = color(0.6, 0.6, 0.7);
             break;
-        case 12:
+        case 2:
             glass_panels(world, false);
             lookfrom = point3(1.97006, 2.41049, 7.12357);
             lookat = point3(0, 0.5, 0);
@@ -787,27 +410,7 @@ int main()
             aperture = 0.1;
             background = color(1.0, 1.0, 1.0);
             break;
-        case 13:
-            monkey_debug(world);
-            lookfrom = point3(2.95012, 3.84593, 6.67006);
-            lookat = point3(0, 0.05, 0);
-            vfov = 20.0;
-            aperture = 0.0;
-            background = color(1.0, 1.0, 1.0);
-            use_envmap = false;
-            russian_roulette = false;
-            break;
-        case 14:
-            monk_debug(world);
-            lookfrom = point3(-8.49824, 3.01965, -2.37236);
-            lookat = point3(0, 0.75, -0.75);
-            vfov = 20.0;
-            aperture = 0.0;
-            background = color(1.0, 1.0, 1.0);
-            use_envmap = false;
-            russian_roulette = false;
-            break;
-        case 15:
+        case 3:
             dragon_scene(world, false);
             // lookfrom = point3(-4.35952, 2.64187, 4.06531);
             //lookfrom = { 4.31991, 4.0518, -2.75208 };
@@ -817,39 +420,28 @@ int main()
             aperture = 0.0;
             background = color(0.6, 0.6, 0.7);
             break;
-        case 16:
-            dragon_debug(world);
-            lookfrom = point3(-4.35952, 2.64187, 4.06531);
-            lookat = point3(0, 0.05, 0);
-            vfov = 20.0;
-            aperture = 0.0;
-            background = color(1.0, 1.0, 1.0);
-            use_envmap = false;
-            russian_roulette = false;
-            break;
     }
 
     // Camera
     vec3 vup{ 0, 1, 0 };
 
-    auto cam = make_shared<camera>(lookfrom, lookat, vup, vfov, aspect_ratio, aperture);
-    auto image = make_shared<yocto::color_image>(yocto::make_image(image_width, image_height, false));
+    camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture);
+    auto image = yocto::make_image(image_width, image_height, false);
 
-    shared_ptr<EnvMap> envmap = nullptr;
+    unique_ptr<EnvMap> envmap{};
     if (use_envmap) {
         //auto hdr_filename = "hdrs/christmas_photo_studio_04_1k.hdr";
         //auto hdr_filename = "hdrs/christmas_photo_studio_04_4k.exr";
         //auto hdr_filename = "hdrs/parched_canal_1k.exr";
         auto hdr_filename = "hdrs/large_corridor_4k.exr";
-        envmap = make_shared<EnvMap>(hdr_filename);
+        envmap = make_unique<EnvMap>(hdr_filename);
     }
 
     // Render
     scene_desc scene{
         background,
         world,
-        light,
-        envmap
+        envmap.get()
     };
     unsigned rr_depth = russian_roulette ? 3 : max_depth;
     auto pt = make_shared<pathtracer>(cam, image, scene, max_depth, rr_depth);
@@ -860,9 +452,9 @@ int main()
 
     //debug_pixel(pt, 67, 0, 1, true);
     // inspect_all(pt, 1, false, -1);
-    // render(pt, world, cam, image, 1); // pass spp=0 to disable further rendering in the window
+    render(pt, world, cam, image, -1); // pass spp=0 to disable further rendering in the window
     //offline_render(pt, 128);
-    offline_parallel_render(pt, 128);
+    // offline_parallel_render(pt, 128);
     // window_debug(pt, world, cam, image, 267, 161, 1);
     // debug_sss(pt, world, cam, image);
 
@@ -870,10 +462,10 @@ int main()
 
     // compare to reference image
     bool save_ref = false;
-    bool compare_ref = true;
+    bool compare_ref = false;
 
-    auto raw = make_shared<RawData>(image->width, image->height);
-    pt->getRawData(raw);
+    auto raw = make_unique<RawData>(image.width, image.height);
+    pt->getRawData(*raw);
     if (compare_ref) {
         auto ref = make_shared<RawData>("dragon-128spp.raw");
         std::cerr << "RMSE = " << raw->rmse(ref) << std::endl;

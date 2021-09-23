@@ -10,7 +10,7 @@
 namespace tool {
     class zoom_pixel {
     private:
-        Shader shader{ "shaders/zoom_pixel/vertex.glsl", "shaders/zoom_pixel/fragment.glsl" };
+        Shader shader{ "source/vren-gui/shaders/zoom_pixel/vertex.glsl", "source/vren-gui/shaders/zoom_pixel/fragment.glsl" };
         unsigned VBO, VAO, EBO;
         glm::vec3 color;
         glm::vec2 position;

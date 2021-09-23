@@ -15,7 +15,7 @@
 #include "screen_texture.h"
 #include "zoom_pixel.h"
 #include "lines.h"
-#include "../tracer.h"
+#include "tracer.h"
 
 namespace tool {
     enum WindowState {
@@ -49,19 +49,19 @@ namespace tool {
         unique_ptr<lines> ls = NULL;
 
         shared_ptr<tracer> pt;
-        shared_ptr<callback::callback> cb;
+        callback::callback* cb;
         bool isRendering = false;
 
         void switchToWireFrame(bool force);
         void switchToPathTracer(bool force);
 
     public:
-        window(std::shared_ptr<yocto::color_image> image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
+        window(yocto::color_image& image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
         ~window();
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }
 
-        virtual void setCallback(shared_ptr<callback::callback> c) override { cb = c; }
+        virtual void setCallback(callback::callback* c) override { cb = c; }
 
         virtual void render(int spp = -1) override;
 

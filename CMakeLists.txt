@@ -7,6 +7,11 @@ project ( v_ren
 
 set ( CMAKE_CXX_STANDARD 17 )
 
+option(VREN_GUI "Build vren-gui" OFF)
+
 add_subdirectory(exts)
 add_subdirectory(vren)
-# ignore vren-gui for now
+
+if(VREN_GUI)
+add_subdirectory(vren-gui)
+endif()

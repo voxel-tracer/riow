@@ -4,7 +4,7 @@
 
 namespace tool {
     std::shared_ptr<window_base> create_window(
-            std::shared_ptr<yocto::color_image> image, 
+            yocto::color_image& image, 
             std::shared_ptr<tracer> tr, 
             std::shared_ptr<yocto::scene_model> sc,
             glm::vec3 look_at, 

@@ -7,6 +7,8 @@
 
 #include "vec3.h"
 
+#include <yocto/yocto_cli.h>
+
 class RawData {
 protected:
     std::vector<vec3> data;

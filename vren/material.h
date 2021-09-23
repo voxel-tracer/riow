@@ -40,15 +40,17 @@ public:
 */
 class passthrough : public material {
 private:
-    std::shared_ptr<Medium> medium = std::make_shared<Medium>();
+    std::shared_ptr<Medium> medium;
 
 public:
+    passthrough(std::shared_ptr<Medium> m) : medium(m) {}
+
     virtual bool scatter(const ray& in, const hit_record& rec, scatter_record& srec, rnd& rng) const override {
         srec.specular_ray = { rec.p, in.direction() };
         srec.is_specular = true;
         srec.is_refracted = true;
         srec.medium_ptr = medium.get();
-        srec.attenuation = rec.front_face ? color(.5, 1.0, 1.0) : color(1.0, 1.0, .5);
+        srec.attenuation = { 1.0, 1.0, 1.0 };
         return true;
     }
 };

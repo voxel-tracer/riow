@@ -21,11 +21,11 @@ namespace tool {
 
         virtual void updateCamera(glm::vec3 look_from, glm::vec3 look_at) = 0;
 
-        virtual void setCallback(std::shared_ptr<callback::callback> cb) = 0;
+        virtual void setCallback(callback::callback* cb) = 0;
     };
 
     std::shared_ptr<window_base> create_window(
-        std::shared_ptr<yocto::color_image> image,
+        yocto::color_image& image,
         std::shared_ptr<tracer> tr,
         std::shared_ptr<yocto::scene_model> sc,
         glm::vec3 look_at,

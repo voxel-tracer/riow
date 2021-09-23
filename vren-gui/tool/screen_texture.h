@@ -7,14 +7,14 @@
 namespace tool {
     class screen_texture {
     private:
-        Shader shader{ "shaders/screen_texture/vertex.glsl", "shaders/screen_texture/fragment.glsl" };
+        Shader shader{ "source/vren-gui/shaders/screen_texture/vertex.glsl", "source/vren-gui/shaders/screen_texture/fragment.glsl" };
         unsigned texture;
         unsigned VBO, VAO, EBO;
 
-        std::shared_ptr<yocto::color_image> image;
+        yocto::color_image *image;
 
     public:
-        screen_texture(std::shared_ptr<yocto::color_image> image) : image(image) {
+        screen_texture(yocto::color_image* image) : image(image) {
             float vertices[] = {
                 // position           // texture coords
                 +1.0f, +1.0f,  0.0f,  1.0f, 0.0f,

@@ -1,5 +1,5 @@
 #include "window.h"
-#include "../callbacks.h"
+#include "tool_callbacks.h"
 #include "widgets.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -28,8 +28,8 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 namespace tool {
-    window::window(std::shared_ptr<yocto::color_image> image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
-            pt(tr), cam(camera{ static_cast<float>(image->width) / image->height, look_at, look_from }) {
+    window::window(yocto::color_image& image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
+            pt(tr), cam(camera{ static_cast<float>(image.width) / image.height, look_at, look_from }) {
         // glfw: initialize and configure
         // ------------------------------
         if (!glfwInit()) {
@@ -43,7 +43,7 @@ namespace tool {
 
         // glfw window creation
         // --------------------
-        glwindow = glfwCreateWindow(image->width, image->height, "The Tool", NULL, NULL);
+        glwindow = glfwCreateWindow(image.width, image.height, "The Tool", NULL, NULL);
         if (glwindow == NULL) {
             glfwTerminate();
             throw exception("Failed to create GLFW window");
@@ -62,10 +62,10 @@ namespace tool {
         imGuiManager = make_unique<ImGuiManager>(glwindow, glsl_version);
 
         // initialize shader
-        shader = make_unique<Shader>("shaders/scene/vertex.glsl", "shaders/scene/fragment.glsl");
-        screen = make_unique<screen_texture>(image);
+        shader = make_unique<Shader>("source/vren-gui/shaders/scene/vertex.glsl", "source/vren-gui/shaders/scene/fragment.glsl");
+        screen = make_unique<screen_texture>(&image);
 
-        pixel = make_unique<zoom_pixel>(image->width, image->height, 20);
+        pixel = make_unique<zoom_pixel>(image.width, image.height, 20);
 
         // create global transformations
         // ----------------------
@@ -177,8 +177,8 @@ glfwPollEvents();
         if (state == WindowState::PathTracer) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 // TODO make debug spp configurable in UI
-                unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
-                debugPixel(mouse_last_x, mouse_last_y, spp);
+                //unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
+                //debugPixel(mouse_last_x, mouse_last_y, spp);
                 switchToWireFrame();
             }
         }
@@ -192,11 +192,11 @@ glfwPollEvents();
         //auto buildSegmentsCb = std::make_shared<callback::in_out_segments_cb>();
         auto buildSegmentsCb = std::make_shared<callback::build_segments_cb>();
         auto collectHitsCb = std::make_shared<callback::collect_hits>();
-        auto multiCb = std::make_shared<callback::multi>();
+        auto multiCb = std::make_unique<callback::multi>();
         multiCb->add(buildSegmentsCb);
         multiCb->add(collectHitsCb);
 
-        pt->DebugPixel(x, y, spp, multiCb);
+        pt->DebugPixel(x, y, spp, multiCb.get());
 
         hits = collectHitsCb->hits;
 
@@ -204,8 +204,8 @@ glfwPollEvents();
         ls = make_unique<lines>(buildSegmentsCb->segments);
 
         {
-            auto pcb = std::make_shared<callback::print_callback>(true);
-            pt->DebugPixel(x, y, spp, pcb);
+            auto pcb = std::make_unique<callback::print_callback>(true);
+            pt->DebugPixel(x, y, spp, pcb.get());
         }
 
         switchToWireFrame();

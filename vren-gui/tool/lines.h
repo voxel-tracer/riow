@@ -52,7 +52,7 @@ namespace tool {
             // VAOs requires a call to glBindVertexArray anyways so we generally don't unbind VAOs (nor VBOs) when it's not directly necessary.
             glBindVertexArray(0);
 
-            shader = make_unique<Shader>("shaders/lines/vertex.glsl", "shaders/lines/fragment.glsl");
+            shader = make_unique<Shader>("source/vren-gui/shaders/lines/vertex.glsl", "source/vren-gui/shaders/lines/fragment.glsl");
         }
 
         ~lines() {

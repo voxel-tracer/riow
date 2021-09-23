@@ -59,6 +59,9 @@ public:
         instance.material = 0;
         scene.instances.push_back(instance);
 
+        auto stats = scene_stats(scene);         
+        for (auto stat : stats) yocto::print_info(stat);
+
         buildBvh(embree);
     }
 
