@@ -28,6 +28,38 @@
 
 using namespace std;
 
+void moriKnob(hittable_list& world) {
+    auto obj = yocto::obj_model{};
+    auto error = string{};
+    if (!yocto::load_obj("models/mori-knob.obj", obj, error))
+        yocto::print_fatal("failed to load model: " + error);
+    for (auto shape : obj.shapes) {
+        if (shape.name == "BasePlane_basePlane") {
+            auto mat = make_shared<lambertian>(color(0.8));
+
+            world.add(make_shared<model>(shape, mat));
+        }
+        else if (shape.name == "InnerSphere_innerSphere") {
+            auto mat = make_shared<lambertian>(color(0.2));
+
+            world.add(make_shared<model>(shape, mat));
+        }
+        else if (shape.name == "OuterSphere_outerSphere" || shape.name == "ObjBase_objBase") {
+            // glass with ketchup
+            vec3 sigma_s, sigma_a;
+            GetMediumScatteringProperties("Ketchup", sigma_a, sigma_s);
+            auto scale = 400.0f;
+            auto ketchup = make_shared<HomogeneousMedium>(sigma_a * scale, sigma_s * scale);
+            auto mat = make_shared<dielectric>(1.35, ketchup);
+
+            world.add(make_shared<model>(shape, mat));
+        }
+        else {
+            yocto::print_info("Ignoring shape: " + shape.name);
+        }
+    }
+}
+
 void simple_box(hittable_list& objects, shared_ptr<hittable> light, bool add_light) {
 
     // auto material_ground = make_shared<lambertian>(color(0.4));
@@ -268,19 +300,24 @@ void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, int 
     cb->digest(cerr) << std::endl;
 }
 
-//void window_debug(shared_ptr<tracer> pt, shared_ptr<hittable_list> world, shared_ptr<camera> cam, shared_ptr<yocto::color_image> image, unsigned x, unsigned y, unsigned spp) {
-//    // now display a window
-//    vec3 lookat = cam->getLookAt();
-//    vec3 lookfrom = cam->getLookFrom();
-//
-//    auto s = init_scene(world);
-//    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
-//    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-//    auto w = tool::create_window(image, pt, s, at, from);
-//
-//    w->debugPixel(x, y, spp);
-//    w->render();
-//}
+void window_debug(
+        shared_ptr<tracer> pt, 
+        const hittable_list& world, 
+        const camera& cam, 
+        yocto::color_image& image, 
+        unsigned x, unsigned y, unsigned spp) {
+    // now display a window
+    vec3 lookat = cam.getLookAt();
+    vec3 lookfrom = cam.getLookFrom();
+
+    auto s = init_scene(world);
+    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+    auto w = tool::create_window(image, pt, s, at, from);
+
+    w->debugPixel(x, y, spp);
+    w->render();
+}
 
 void render(shared_ptr<tracer> pt, hittable_list& world, camera& cam, yocto::color_image& image, int spp) {
     vec3 lookat = cam.getLookAt();
@@ -314,30 +351,30 @@ void offline_parallel_render(shared_ptr<tracer> pt, unsigned spp) {
     cerr << "Rendering took " << timer_seconds << " seconds.\n";
 }
 
-//void debug_sss(
-//        shared_ptr<tracer> pt, 
-//        shared_ptr<hittable_list> world, 
-//        shared_ptr<camera> cam, 
-//        shared_ptr<yocto::color_image> image) {
-//    // render the scene offline while collecting the histogram
-//    // auto cb = make_shared<callback::num_medium_scatter_histo>(10, 20);
-//    std::shared_ptr<callback::callback> cb{};
-//    pt->Render(1, cb.get());
-//
-//    vec3 lookat = cam->getLookAt();
-//    vec3 lookfrom = cam->getLookFrom();
-//
-//    auto s = init_scene(world);
-//    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
-//    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-//    auto w = tool::create_window(image, pt, s, at, from);
-//
-//    // quick test
-//    //w->showHisto("histogram", cb->getNormalizedBins());
-//    w->debugPixel(226, 262, 1024);
-//    w->updateCamera( glm::vec3{ -2.27297f, 0.15248f, 1.23364f }, at );
-//    w->render(0);
-//}
+void debug_sss(
+        shared_ptr<tracer> pt, 
+        const hittable_list& world, 
+        const camera& cam, 
+        yocto::color_image& image) {
+    // render the scene offline while collecting the histogram
+    // auto cb = make_shared<callback::num_medium_scatter_histo>(10, 20);
+    std::shared_ptr<callback::callback> cb{};
+    pt->Render(1, cb.get());
+
+    vec3 lookat = cam.getLookAt();
+    vec3 lookfrom = cam.getLookFrom();
+
+    auto s = init_scene(world);
+    auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
+    auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
+    auto w = tool::create_window(image, pt, s, at, from);
+
+    // quick test
+    //w->showHisto("histogram", cb->getNormalizedBins());
+    w->debugPixel(226, 262, 1024);
+    w->updateCamera( glm::vec3{ -2.27297f, 0.15248f, 1.23364f }, at );
+    w->render(0);
+}
 
 void test_envmap(std::string hdr_filename, std::shared_ptr<EnvMap> envmap) {
     // let's convert envmap to LDR image
@@ -384,7 +421,7 @@ int main()
     bool add_light = false;
     bool russian_roulette = true;
 
-    switch (3) {
+    switch (4) {
         case 0:
             simple_box(world, light, add_light);
             //lookfrom = point3(3, 2, 2);
@@ -416,6 +453,14 @@ int main()
             //lookfrom = { 4.31991, 4.0518, -2.75208 };
             lookfrom = { 2.27155, 7.99803, 0.244723 };
             lookat = point3(-0.5, 0, -0.5);
+            vfov = 20.0;
+            aperture = 0.0;
+            background = color(0.6, 0.6, 0.7);
+            break;
+        case 4:
+            moriKnob(world);
+            lookfrom = point3(-0.594562, 1.10331, -0.793232);
+            lookat = point3(0, 0.1, 0);
             vfov = 20.0;
             aperture = 0.0;
             background = color(0.6, 0.6, 0.7);

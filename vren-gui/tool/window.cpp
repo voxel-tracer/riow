@@ -176,9 +176,10 @@ glfwPollEvents();
 
         if (state == WindowState::PathTracer) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
-                // TODO make debug spp configurable in UI
-                //unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
-                //debugPixel(mouse_last_x, mouse_last_y, spp);
+                if (canDebugPixels) {
+                    unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
+                    debugPixel(mouse_last_x, mouse_last_y, spp);
+                }
                 switchToWireFrame();
             }
         }

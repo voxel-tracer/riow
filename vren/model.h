@@ -13,6 +13,7 @@
 #include <yocto/yocto_scene.h>
 #include <yocto/yocto_sceneio.h>
 #include <yocto/yocto_cli.h>
+#include <yocto/yocto_modelio.h>
 
 #include "hittable.h"
 #include "rnd.h"
@@ -25,18 +26,9 @@ private:
         yocto::print_progress_end();
     }
 
-public:
-    model(std::string filename, std::shared_ptr<material> mat, yocto::frame3f frame = {}, bool embree = true, 
-            int subdivisions = 0, bool catmullclark = true) :
-            hittable(filename + "_model"), mat_ptr(mat) {
-        auto error = std::string{};
-        auto shape = yocto::scene_shape{};
-        if (!yocto::load_shape(filename, shape, error)) {
-            throw std::runtime_error(error);
-        }
-
+    void setup(yocto::scene_shape& shape, yocto::frame3f frame = {}, bool embree = true, int subdivisions = 0, bool catmullclark = true) {
         // remove existing normals, we don't want to be interpolating them for now
-        shape.normals.clear();
+        //shape.normals.clear();
 
         if (frame != yocto::identity3x4f) {
             yocto::print_info("frame provided. Shape will be transformed to world coordinates");
@@ -59,10 +51,35 @@ public:
         instance.material = 0;
         scene.instances.push_back(instance);
 
-        auto stats = scene_stats(scene);         
-        for (auto stat : stats) yocto::print_info(stat);
-
         buildBvh(embree);
+    }
+
+public:
+    model(yocto::obj_shape& obj, std::shared_ptr<material> mat, yocto::frame3f frame = {}, 
+            bool embree = true, int subdivisions = 1, bool catmullclark = true): 
+            hittable(obj.name + "_model"), mat_ptr(mat) {
+        auto shape = yocto::scene_shape{};
+        auto materials = std::vector<int>{};
+        get_positions(obj, shape.positions);
+        get_normals(obj, shape.normals);
+        get_texcoords(obj, shape.texcoords, false);
+        get_faces(obj, shape.triangles, shape.quads, materials);
+        get_lines(obj, shape.lines, materials);
+        get_points(obj, shape.points, materials);
+
+        setup(shape, frame, embree, subdivisions, catmullclark);
+    }
+
+    model(std::string filename, std::shared_ptr<material> mat, yocto::frame3f frame = {}, bool embree = true, 
+            int subdivisions = 0, bool catmullclark = true) :
+            hittable(filename + "_model"), mat_ptr(mat) {
+        auto error = std::string{};
+        auto shape = yocto::scene_shape{};
+        if (!yocto::load_shape(filename, shape, error)) {
+            throw std::runtime_error(error);
+        }
+
+        setup(shape, frame, embree, subdivisions, catmullclark);
     }
 
     virtual bool hit(const ray& r, double t_min, double t_max, hit_record& rec) const override {

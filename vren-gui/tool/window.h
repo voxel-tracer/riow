@@ -49,8 +49,9 @@ namespace tool {
         unique_ptr<lines> ls = NULL;
 
         shared_ptr<tracer> pt;
-        callback::callback* cb;
+        callback::callback* cb{};
         bool isRendering = false;
+        bool canDebugPixels = false;
 
         void switchToWireFrame(bool force);
         void switchToPathTracer(bool force);
@@ -75,5 +76,7 @@ namespace tool {
         void handle_mouse_move(double xPos, double yPos);
         void handle_mouse_buttons(int button, int action, int mods);
         void handle_mouse_scroll(double xoffset, double yoffset);
+
+        void enablePixelDebugging(bool enable) { canDebugPixels = enable; }
     };
 }
