@@ -6,6 +6,7 @@
 
 #include "thread_pool.hpp"
 #include "envmap.h"
+#include "Film.h"
 
 #include <atomic>
 
@@ -24,17 +25,14 @@ struct scene_desc {
 class pathtracer: public tracer {
 private:
     camera& cam;
-    // TODO move HDR->LDR conversion to RawData and let caller use getRawData()
-    yocto::color_image& image;
     const scene_desc scene;
     const unsigned max_depth;
     const unsigned rroulette_depth;
 
-    unsigned samples = 0;
-    //TODO use RawData instead
-    std::vector<color> rawData;
     std::vector<unsigned> seeds;
     thread_pool pool;
+
+    Film& film;
 
     color ray_color(const ray& r, rnd& rng, callback::callback* cb) {
         const double epsilon = 0.001;
@@ -234,16 +232,16 @@ private:
     }
 
     unsigned pixelIdx(unsigned i, unsigned j) const {
-        return i + j * image.width;
+        return i + j * film.width;
     }
 
     unsigned computeSeed(int i, int j) const {
-        return (xor_rnd::wang_hash(j * image.width + i) * 336343633) | 1;
+        return (xor_rnd::wang_hash(j * film.width + i) * 336343633) | 1;
     }
 
     void initSeeds() {
-        for (auto j = 0; j != image.height; ++j) {
-            for (auto i = 0; i != image.width; ++i) {
+        for (auto j = 0; j != film.height; ++j) {
+            for (auto i = 0; i != film.width; ++i) {
                 seeds[pixelIdx(i, j)] = computeSeed(i, j);
             }
         }
@@ -256,11 +254,11 @@ private:
         xor_rnd local_rng{ seed };
 
         for (auto s = 0; s != spp; ++s) {
-            auto u = (i + local_rng.random_double()) / (image.width - 1);
-            auto v = (j + local_rng.random_double()) / (image.height - 1);
+            auto u = (i + local_rng.random_double()) / (film.width - 1);
+            auto v = (j + local_rng.random_double()) / (film.height - 1);
             ray r = cam.get_ray(u, v, local_rng);
 
-            if (cb) (*cb)(callback::New::make(r, i, (image.height - 1) - j, s));
+            if (cb) (*cb)(callback::New::make(r, i, (film.height - 1) - j, s));
 
             pixel_color += ray_color(r, local_rng, cb);
             if (cb && cb->terminate()) break;
@@ -272,62 +270,46 @@ private:
         return pixel_color;
     }
 
+    void RenderLine(unsigned j, unsigned startX, unsigned endX, unsigned spp, callback::callback* cb) {
+        for (auto i = startX; i < endX; ++i) {
+            const unsigned idx = i + j * film.width;
+
+            color clr = RenderPixel(i, j, spp, cb);
+            if (cb) cb->alterPixelColor(clr);
+            film.AddSample(i, (film.height - 1) - j, toYocto(clr), spp);
+
+            if (cb && cb->terminate()) return;
+        }
+    }
+
 public:
-    pathtracer(camera& c, yocto::color_image& im, scene_desc sc, unsigned md, unsigned rrd)
-        : cam(c), image(im), scene(sc), max_depth(md), rroulette_depth(rrd),
-        rawData(im.width * im.height, color()), seeds(im.width * im.height, 0) {
+    pathtracer(camera& c, Film& film, scene_desc sc, unsigned md, unsigned rrd)
+        : cam(c), film(film), scene(sc), max_depth(md), rroulette_depth(rrd), 
+        seeds(film.width * film.height, 0) {
+
         initSeeds();
 
         yocto::print_info("thread pool size = " + std::to_string(pool.get_thread_count()));
     }
 
-    virtual void Render(unsigned spp, callback::callback* cb) override {
-        samples += spp; // needed to properly average the samples
-
-        for (auto j = image.height - 1; j >= 0; --j) {
-            for (auto i = 0; i != image.width; ++i) {
-                const unsigned idx = i + j * image.width;
-
-                color clr = RenderPixel(i, j, spp, cb);
-                if (cb) cb->alterPixelColor(clr);
-                rawData[idx] += clr;
-
-                if (cb && cb->terminate()) return;
-
-                //TODO I should keep the raw colors and only convert to LDR when returning the image
-                yocto::set_pixel(image, i, (image.height - 1) - j, convert(rawData[idx], samples));
-            }
-        }
-
-        std::cerr << std::endl;
-    }
-
-    virtual void RenderParallel(unsigned spp, callback::callback* cb) override {
-        samples += spp;
-
-        std::atomic_int next_line(0);
-        for (auto t = 0; t < pool.get_thread_count(); ++t) {
-            pool.push_task([&] {
-                while (true) {
-                    auto j = next_line.fetch_add(1);
-                    if (j >= image.height) break;
-
-                    for (auto i = 0; i < image.width; ++i) {
-                        const unsigned idx = i + j * image.width;
-
-                        color clr = RenderPixel(i, j, spp, cb);
-                        if (cb) cb->alterPixelColor(clr);
-                        rawData[idx] += clr;
-
-                        if (cb && cb->terminate()) return;
-
-                        yocto::set_pixel(image, i, (image.height - 1) - j, convert(rawData[idx], samples));
+    virtual void Render(unsigned spp, bool parallel, callback::callback* cb) override {
+        if (parallel) {
+            std::atomic_int next_line(0);
+            for (auto t = 0; t < pool.get_thread_count(); ++t) {
+                pool.push_task([&] {
+                    while (true) {
+                        auto j = next_line.fetch_add(1);
+                        if (j >= film.height) break;
+                        RenderLine(j, 0, film.width, spp, cb);
                     }
-                }
-            });
-        }
+                    });
+            }
 
-        pool.wait_for_tasks();
+            pool.wait_for_tasks();
+        }
+        else {
+            for (unsigned j = 0; j < film.height; j++) RenderLine(j, 0, film.width, spp, cb);
+        }
     }
 
     virtual void DebugPixel(unsigned x, unsigned y, unsigned spp, callback::callback* cb) override {
@@ -335,11 +317,9 @@ public:
 
         // to render pixel (x, y)
         auto i = x;
-        auto j = (image.height - 1) - y;
+        auto j = (film.height - 1) - y;
         RenderPixel(i, j, spp, cb, true);
     }
-
-    virtual unsigned numSamples() const override { return samples; }
 
     virtual void updateCamera(
         double from_x, double from_y, double from_z,
@@ -350,16 +330,6 @@ public:
 
     virtual void Reset() override {
         initSeeds();
-        std::fill(rawData.begin(), rawData.end(), color());
-        samples = 0;
-    }
-
-    virtual void getRawData(RawData& data) const override {
-        for (auto j : yocto::range(image.height)) {
-            for (auto i : yocto::range(image.width)) {
-                const unsigned idx = i + j * image.width;
-                data.set(i, (image.height - 1) - j, rawData[idx] / samples);
-            }
-        }
+        film.Clear();
     }
 };

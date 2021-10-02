@@ -17,7 +17,7 @@ protected:
 
 public:
     RawData(unsigned width, unsigned height) : width(width), height(height) {
-        data.reserve(width * height);
+        data.resize(width * height);
     }
 
     RawData(std::string filename) {
@@ -34,7 +34,7 @@ public:
         in.read((char*)&width, sizeof(unsigned));
         in.read((char*)&height, sizeof(unsigned));
 
-        data.reserve(width * height);
+        data.resize(width * height);
         in.read((char*)&data[0], sizeof(vec3) * width * height);
 
         in.close();
@@ -54,14 +54,14 @@ public:
         out.close();
     }
 
-    double rmse(shared_ptr<const RawData> ref) const {
-        if (ref->width != width || ref->height != height)
+    double rmse(const RawData& ref) const {
+        if (ref.width != width || ref.height != height)
             throw std::invalid_argument("ref image has a different size");
 
         double error = 0.0;
         for (auto i = 0; i < width*height; i++) {
             const vec3 f = data[i];
-            const vec3 g = ref->data[i];
+            const vec3 g = ref.data[i];
             for (auto c = 0; c < 3; c++) {
                 error += (f[c] - g[c]) * (f[c] - g[c]) / 3.0;
             }
@@ -69,12 +69,12 @@ public:
         return sqrt(error / (width * height));
     }
 
-    bool findFirstDiff(shared_ptr<const RawData> ref, yocto::vec2i &coord) const {
-        if (ref->width != width || ref->height != height)
+    bool findFirstDiff(const RawData& ref, yocto::vec2i &coord) const {
+        if (ref.width != width || ref.height != height)
             throw std::invalid_argument("ref image has a different size");
         for (auto i = 0; i < width * height; i++) {
             const vec3 f = data[i];
-            const vec3 g = ref->data[i];
+            const vec3 g = ref.data[i];
             if (f != g) {
                 coord.x = i % width;
                 coord.y = i / width;

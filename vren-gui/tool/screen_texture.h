@@ -2,6 +2,8 @@
 
 #include <glad/glad.h>  // include glad.h to get all required OpenGL headers
 #include <yocto/yocto_image.h>
+
+#include "Film.h"
 #include "shader.h"
 
 namespace tool {
@@ -11,10 +13,13 @@ namespace tool {
         unsigned texture;
         unsigned VBO, VAO, EBO;
 
-        yocto::color_image *image;
+        const Film& film;
+        yocto::color_image image;
 
     public:
-        screen_texture(yocto::color_image* image) : image(image) {
+        screen_texture(const Film& film) : film(film) {
+            image = yocto::make_image(film.width, film.height, false);
+
             float vertices[] = {
                 // position           // texture coords
                 +1.0f, +1.0f,  0.0f,  1.0f, 0.0f,
@@ -73,12 +78,13 @@ namespace tool {
 
         void updateScreen() {
             vector<yocto::vec4b> bytes;
-            yocto::float_to_byte(bytes, image->pixels);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image->width, image->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &bytes[0]);
+            film.GetImage(image);
+            yocto::float_to_byte(bytes, image.pixels);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &bytes[0]);
         }
 
         glm::vec3 get_color(unsigned x, unsigned y) {
-            yocto::vec4f color = yocto::get_pixel(*image, x, y);
+            yocto::vec4f color = yocto::get_pixel(image, x, y);
             return glm::vec3(color.x, color.y, color.z);
         }
 

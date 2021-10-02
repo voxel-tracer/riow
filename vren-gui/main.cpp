@@ -296,7 +296,7 @@ void inspect_all(shared_ptr<tracer> pt, unsigned spp, bool verbose = false, int 
     //auto cb = std::make_shared<callback::validate_model>("models/LuYu-obj/LuYu-obj.obj_model");
     auto cb = std::make_unique<callback::validate_model>("models/dragon_remeshed.ply_model", stopAtBug, true);
     //auto cb = std::make_shared<callback::highlight_element>(1);
-    pt->Render(spp, cb.get());
+    pt->Render(spp, false, cb.get());
     cb->digest(cerr) << std::endl;
 }
 
@@ -304,7 +304,7 @@ void window_debug(
         shared_ptr<tracer> pt, 
         const hittable_list& world, 
         const camera& cam, 
-        yocto::color_image& image, 
+        Film& film, 
         unsigned x, unsigned y, unsigned spp) {
     // now display a window
     vec3 lookat = cam.getLookAt();
@@ -313,20 +313,20 @@ void window_debug(
     auto s = init_scene(world);
     auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
     auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-    auto w = tool::create_window(image, pt, s, at, from);
+    auto w = tool::create_window(film, pt, s, at, from);
 
     w->debugPixel(x, y, spp);
     w->render();
 }
 
-void render(shared_ptr<tracer> pt, hittable_list& world, camera& cam, yocto::color_image& image, int spp) {
+void render(shared_ptr<tracer> pt, hittable_list& world, camera& cam, Film& film, int spp) {
     vec3 lookat = cam.getLookAt();
     vec3 lookfrom = cam.getLookFrom();
 
     auto s = init_scene(world);
     auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
     auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-    auto w = tool::create_window(image, pt, s, at, from);
+    auto w = tool::create_window(film, pt, s, at, from);
 
     //w->setCallback(std::make_shared<callback::validate_model>("models/dragon_remeshed.ply_model"));
 
@@ -336,7 +336,7 @@ void render(shared_ptr<tracer> pt, hittable_list& world, camera& cam, yocto::col
 void offline_render(shared_ptr<tracer> pt, unsigned spp) {
     clock_t start = clock();
     auto cb = std::make_unique<callback::num_inters_callback>();
-    pt->Render(spp, cb.get());
+    pt->Render(spp, false, cb.get());
     clock_t stop = clock();
     double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
     cerr << "Rendering took " << timer_seconds << " seconds.\n" 
@@ -345,7 +345,7 @@ void offline_render(shared_ptr<tracer> pt, unsigned spp) {
 
 void offline_parallel_render(shared_ptr<tracer> pt, unsigned spp) {
     clock_t start = clock();
-    pt->RenderParallel(spp);
+    pt->Render(spp);
     clock_t stop = clock();
     double timer_seconds = ((double)(stop - start)) / CLOCKS_PER_SEC;
     cerr << "Rendering took " << timer_seconds << " seconds.\n";
@@ -355,11 +355,11 @@ void debug_sss(
         shared_ptr<tracer> pt, 
         const hittable_list& world, 
         const camera& cam, 
-        yocto::color_image& image) {
+        Film& film) {
     // render the scene offline while collecting the histogram
     // auto cb = make_shared<callback::num_medium_scatter_histo>(10, 20);
     std::shared_ptr<callback::callback> cb{};
-    pt->Render(1, cb.get());
+    pt->Render(1, false, cb.get());
 
     vec3 lookat = cam.getLookAt();
     vec3 lookfrom = cam.getLookFrom();
@@ -367,7 +367,7 @@ void debug_sss(
     auto s = init_scene(world);
     auto at = glm::vec3(lookat[0], lookat[1], lookat[2]);
     auto from = glm::vec3(lookfrom[0], lookfrom[1], lookfrom[2]);
-    auto w = tool::create_window(image, pt, s, at, from);
+    auto w = tool::create_window(film, pt, s, at, from);
 
     // quick test
     //w->showHisto("histogram", cb->getNormalizedBins());
@@ -471,7 +471,7 @@ int main()
     vec3 vup{ 0, 1, 0 };
 
     camera cam(lookfrom, lookat, vup, vfov, aspect_ratio, aperture);
-    auto image = yocto::make_image(image_width, image_height, false);
+    auto film = Film(image_width, image_height);
 
     unique_ptr<EnvMap> envmap{};
     if (use_envmap) {
@@ -489,7 +489,7 @@ int main()
         envmap.get()
     };
     unsigned rr_depth = russian_roulette ? 3 : max_depth;
-    auto pt = make_shared<pathtracer>(cam, image, scene, max_depth, rr_depth);
+    auto pt = make_shared<pathtracer>(cam, film, scene, max_depth, rr_depth);
     if (!russian_roulette)
         std::cerr << "RUSSIAN ROULETTE DISABLED\n";
 
@@ -497,7 +497,7 @@ int main()
 
     //debug_pixel(pt, 67, 0, 1, true);
     // inspect_all(pt, 1, false, -1);
-    render(pt, world, cam, image, -1); // pass spp=0 to disable further rendering in the window
+    render(pt, world, cam, film, -1); // pass spp=0 to disable further rendering in the window
     //offline_render(pt, 128);
     // offline_parallel_render(pt, 128);
     // window_debug(pt, world, cam, image, 267, 161, 1);
@@ -509,18 +509,18 @@ int main()
     bool save_ref = false;
     bool compare_ref = false;
 
-    auto raw = make_unique<RawData>(image.width, image.height);
-    pt->getRawData(*raw);
+    auto raw = RawData(film.width, film.height);
+    film.GetRaw(raw);
     if (compare_ref) {
-        auto ref = make_shared<RawData>("dragon-128spp.raw");
-        std::cerr << "RMSE = " << raw->rmse(ref) << std::endl;
+        auto ref = RawData("dragon-128spp.raw");
+        std::cerr << "RMSE = " << raw.rmse(ref) << std::endl;
         yocto::vec2i coord;
-        if (raw->findFirstDiff(ref, coord)) {
+        if (raw.findFirstDiff(ref, coord)) {
             std::cerr << "First diff found at (" << coord.x << ", " << coord.y << ")\n";
         }
     }
     if (save_ref) {
         //TODO I should add a timestamp to the reference name to avoid corrupting a previous one
-        raw->saveToFile("dragon-128spp.raw");
+        raw.saveToFile("dragon-128spp.raw");
     }
 }

@@ -28,8 +28,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 }
 
 namespace tool {
-    window::window(yocto::color_image& image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
-            pt(tr), cam(camera{ static_cast<float>(image.width) / image.height, look_at, look_from }) {
+    window::window(Film& film, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from) :
+            pt(tr), cam(camera{ static_cast<float>(film.width) / film.height, look_at, look_from }), 
+            film(film) {
         // glfw: initialize and configure
         // ------------------------------
         if (!glfwInit()) {
@@ -43,7 +44,7 @@ namespace tool {
 
         // glfw window creation
         // --------------------
-        glwindow = glfwCreateWindow(image.width, image.height, "The Tool", NULL, NULL);
+        glwindow = glfwCreateWindow(film.width, film.height, "The Tool", NULL, NULL);
         if (glwindow == NULL) {
             glfwTerminate();
             throw exception("Failed to create GLFW window");
@@ -63,9 +64,9 @@ namespace tool {
 
         // initialize shader
         shader = make_unique<Shader>("source/vren-gui/shaders/scene/vertex.glsl", "source/vren-gui/shaders/scene/fragment.glsl");
-        screen = make_unique<screen_texture>(&image);
+        screen = make_unique<screen_texture>(film);
 
-        pixel = make_unique<zoom_pixel>(image.width, image.height, 20);
+        pixel = make_unique<zoom_pixel>(film.width, film.height, 20);
 
         // create global transformations
         // ----------------------
@@ -81,6 +82,8 @@ namespace tool {
         glfwSetCursorPosCallback(glwindow, mouse_callback);
         glfwSetMouseButtonCallback(glwindow, mouse_button_callback);
         glfwSetScrollCallback(glwindow, scroll_callback);
+
+        // Setup UI widgets
     }
 
     window::~window() {
@@ -106,13 +109,12 @@ namespace tool {
 
             // render our instances
             if (state == WindowState::PathTracer) {
-                isRendering = spp == -1 || pt->numSamples() < spp;
+                isRendering = spp == -1 || numSamples < spp;
                 if (isRendering) {
-                    if (cb)
-                        pt->Render(1, cb);
-                    else
-                        pt->RenderParallel(1);
-                    std::cerr << "\riteration " << pt->numSamples() << std::flush;
+                    // disable parallel rendering if cb defined
+                    pt->Render(1, !cb, cb);
+                    numSamples++;
+                    std::cerr << "\riteration " << numSamples << std::flush;
                     screen->updateScreen();
                 }
                 screen->render();
@@ -131,8 +133,8 @@ namespace tool {
 
             // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
             // -------------------------------------------------------------------------------
-glfwSwapBuffers(glwindow);
-glfwPollEvents();
+            glfwSwapBuffers(glwindow);
+            glfwPollEvents();
         }
     }
 
@@ -177,7 +179,7 @@ glfwPollEvents();
         if (state == WindowState::PathTracer) {
             if (action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1) {
                 if (canDebugPixels) {
-                    unsigned spp = pt->numSamples() == 0 ? 1 : pt->numSamples();
+                    unsigned spp = numSamples == 0 ? 1 : numSamples;
                     debugPixel(mouse_last_x, mouse_last_y, spp);
                 }
                 switchToWireFrame();

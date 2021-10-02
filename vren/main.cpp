@@ -96,7 +96,7 @@ void save_image(const yocto::color_image& image, string prefix, int pass, string
 
 void single_pass(shared_ptr<tracer> pt, const app_params& params, int pass) {
     yocto::print_progress_begin("Rendering Pass " + to_string(pass));
-    pt->RenderParallel(params.samples);
+    pt->Render(params.samples);
     yocto::print_progress_end();
 
 }
@@ -104,7 +104,7 @@ void single_pass(shared_ptr<tracer> pt, const app_params& params, int pass) {
 void parallel_render(tracer& pt, const app_params& params, int pass) {
     yocto::print_progress_begin("Rendering Pass " + to_string(pass), params.samples);
     for (auto i : yocto::range(params.samples)) {
-        pt.RenderParallel(params.samples_per_iter);
+        pt.Render(params.samples_per_iter);
         yocto::print_progress_next();
     }
 }
@@ -150,7 +150,7 @@ int main(int argc, const char* argv[]) {
     vec3 vup{ 0, 1, 0 };
 
     camera cam{ lookfrom, lookat, vup, vfov, aspect_ratio, aperture };
-    auto image = yocto::make_image(image_width, image_height, false);
+    auto film = Film(image_width, image_height);
 
     unique_ptr<EnvMap> envmap = nullptr;
     if (use_envmap) {
@@ -165,7 +165,7 @@ int main(int argc, const char* argv[]) {
         envmap.get()
     };
     unsigned rr_depth = russian_roulette ? 3 : max_depth;
-    pathtracer pt{ cam, image, scene, max_depth, rr_depth };
+    pathtracer pt{ cam, film, scene, max_depth, rr_depth };
     if (!russian_roulette)
         yocto::print_info("WARNING! Russian Roulette is disabled");
 
@@ -174,27 +174,30 @@ int main(int argc, const char* argv[]) {
         while (true) {
             ++pass;
             parallel_render(pt, params, pass);
+            auto image = yocto::make_image(film.width, film.height, false);
+            film.GetImage(image);
             save_image(image, params.output, pass, ".png");
         }
     }
     else {
         parallel_render(pt, params, 1);
-        //single_pass(pt, params, 1);
+        auto image = yocto::make_image(film.width, film.height, false);
+        film.GetImage(image);
         save_image(image, params.output + ".png");
     }
 
     if (params.save_reference) {
-        RawData raw(image.width, image.height);
-        pt.getRawData(raw);
+        RawData raw(film.width, film.height);
+        film.GetRaw(raw);
         raw.saveToFile("reference.raw");
     }
 
     if (!params.reference.empty()) {
         yocto::print_info("comparing with reference image");
-        RawData raw(image.width, image.height);
-        pt.getRawData(raw);
+        RawData raw(film.width, film.height);
+        film.GetRaw(raw);
 
-        auto ref = make_shared<RawData>(params.reference);
+        auto ref = RawData(params.reference);
         yocto::print_info("RMSE = " + std::to_string(raw.rmse(ref)));
     }
 }

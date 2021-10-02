@@ -8,6 +8,7 @@ add_executable(vren
   camera.h
   color.h 
   envmap.h
+  Film.h
   hit_record.h
   hittable.h
   hittable_list.h

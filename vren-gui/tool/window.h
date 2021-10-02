@@ -16,6 +16,7 @@
 #include "zoom_pixel.h"
 #include "lines.h"
 #include "tracer.h"
+#include "widgets.h"
 
 namespace tool {
     enum WindowState {
@@ -33,6 +34,7 @@ namespace tool {
 
         camera cam;
         GLFWwindow* glwindow;
+        Film& film;
 
         unique_ptr<Shader> shader;
         unique_ptr<ImGuiManager> imGuiManager;
@@ -52,12 +54,13 @@ namespace tool {
         callback::callback* cb{};
         bool isRendering = false;
         bool canDebugPixels = false;
+        unsigned numSamples = 0;
 
         void switchToWireFrame(bool force);
         void switchToPathTracer(bool force);
 
     public:
-        window(yocto::color_image& image, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
+        window(Film& film, shared_ptr<tracer> tr, glm::vec3 look_at, glm::vec3 look_from);
         ~window();
 
         void set_scene(shared_ptr<tool::scene> sc) { scene = sc; }

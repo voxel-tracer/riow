@@ -4,6 +4,7 @@
 #include <yocto/yocto_image.h>
 #include <yocto/yocto_sceneio.h>
 #include <glm/vec3.hpp>
+#include "Film.h"
 
 class tracer;
 
@@ -25,7 +26,7 @@ namespace tool {
     };
 
     std::shared_ptr<window_base> create_window(
-        yocto::color_image& image,
+        Film& film,
         std::shared_ptr<tracer> tr,
         std::shared_ptr<yocto::scene_model> sc,
         glm::vec3 look_at,

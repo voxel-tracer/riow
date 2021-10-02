@@ -49,7 +49,7 @@ namespace tool {
 
     class Widget {
     public:
-        virtual void Render() const = 0;
+        virtual void Render() = 0;
     };
 
     class ImGuiManager {
